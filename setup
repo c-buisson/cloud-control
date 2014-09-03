@@ -1,0 +1,21 @@
+#!/bin/bash
+
+RUBY_VERSION=2.1.1
+
+echo "Get RVM"
+curl -sSL https://get.rvm.io | bash
+source ~/.rvm/scripts/rvm
+type rvm | head -n 1
+echo "System and RVM requirements"
+sudo apt-get -y install libcurl3 libcurl3-gnutls libcurl4-openssl-dev qemu-utils bzr
+bzr branch lp:cloud-utils
+rvm requirements
+echo "Installing: Ruby ${RUBY_VERSION}"
+rvm install ruby-$RUBY_VERSION
+rvm use ruby-$RUBY_VERSION
+echo "Installing: bundler"
+gem install bundler --no-ri --no-rdoc
+bundle install
+echo "Creating kvm_guests and sources folders"
+mkdir kvm_guests sources/{iso,cloud_images} interfaces
+touch interfaces/ip_address_pool.txt

@@ -1,0 +1,33 @@
+require 'rubygems'
+require 'erb'
+require 'securerandom'
+require 'colorize'
+require 'curb'
+require 'ipaddr'
+require 'fileutils'
+require 'tempfile'
+require 'fileutils'
+
+#User environment
+HOME="/home/CHANGEME/cloud-control"
+CLOUD_UTILS="/home/CHANGEME/cloud-utils"
+
+#KVM guest
+KVM_DIR=HOME+"/kvm_guests"
+GUEST=KVM_DIR+"/"+guest
+XML=GUEST+"/"+guest+".xml"
+SNAPSHOTS=GUEST+"/snapshots"
+USER_DATA=GUEST+"/user-data"
+KVM_GUEST_IMAGE=GUEST+"/image"
+
+#Misc variables
+IP_FILE=HOME+"/interfaces/ip_address_pool.txt"
+RUNDECK_SCRIPTS=HOME+"/rundeck_scripts"
+SOURCES=HOME+"/sources"
+ISO=SOURCES+"/iso"
+CLOUD_IMAGES=SOURCES+"/cloud_images"
+TEMPLATES=HOME+"/templates"
+
+#IP range
+START_IP="192.168.19.72"
+END_IP="192.168.19.80"
