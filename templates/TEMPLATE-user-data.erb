@@ -16,11 +16,9 @@ write_files:
         # The primary network interface
         auto eth0
         iface eth0 inet static
-        address <%= ip %>
+        address <%= var %>
         netmask 255.255.255.0
-        network 192.168.19.0
-        broadcast 192.168.19.255
-        gateway 192.168.19.86
+        gateway <%= gateway_ip %>
     path: /home/ubuntu/static_ip
     permissions: '0644'
     owner: root:root

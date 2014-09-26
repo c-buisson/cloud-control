@@ -9,10 +9,12 @@ def generate_ip (name)
   #IP range
   start_ip = IPAddr.new(START_IP)
   end_ip   = IPAddr.new(END_IP)
-
-    file = File.open(IP_FILE).each do |lines|
-      ip_in_use << lines.tr("\n","")
-    end
+  <% if backend == "file" %>
+  file = File.open(IP_FILE).each do |lines|
+    ip_in_use << lines.tr("\n","")
+  end<% elsif backend == "mysql" %>
+  require_relative "#{RUNDECK_SCRIPTS}/mysql_backend.rb"
+  ip_in_use = get_ips_list<% end %>
 
   #list of IPs in use
   ip_in_use=ip_in_use.sort!
@@ -23,8 +25,6 @@ def generate_ip (name)
   #Difference between rango of IPs and the IPs in use
   available= vm_ip_range - ip_in_use
 
-  #puts "List of available IPs:"
-  #puts available
   if available[0].nil?
     puts "no more IPs available! Stopping...\n".red.bold
     exit 1
@@ -39,9 +39,9 @@ def generate_ip (name)
   File.open("#{USER_DATA}/#{ARGV[0]}-user-data.erb", "w") do |file|
     file.puts interfaces
   end
-
+  <% if backend == "file" %>
   File.open(IP_FILE, "a") {|f|
     f << "#{available[0]}\n"
   }
-  File.chmod(0664, IP_FILE)
+  File.chmod(0664, IP_FILE)<% elsif backend == "mysql" %>return ip<% end %>
 end

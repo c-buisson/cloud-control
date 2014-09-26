@@ -17,8 +17,7 @@ path=ARGV[0]
 if path.include? "iso"
   system("wget #{path} -P #{ISO}") or raise "Error while downloading that ISO. Wrong URL maybe?"
 elsif path.include? "img"
-  system("wget #{path} -P #{CLOUD_IMAGES}") or raise "Error while downloading that Cloud Image. Wrong URR
-L maybe?"
+  system("wget #{path} -P #{CLOUD_IMAGES}") or raise "Error while downloading that Cloud Image. Wrong URL maybe?"
 else
   puts "Doesn't support this type of source"
   puts "Must be ISO or Cloud Image"
