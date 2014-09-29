@@ -17,7 +17,7 @@ Dir.mkdir(KVM_GUEST_IMAGE)
 if source.include? "iso"
   puts "That image will be blank (iso mode)\e"
   system("qemu-img create -f qcow2 #{KVM_GUEST_IMAGE}/#{guest}.img #{size}G")
-elsif source.include? "origin"
+elsif source.include? "img"
   puts "That image will be a Cloud image\e"
   system("qemu-img convert -O qcow2 #{CLOUD_IMAGES}/#{source} #{KVM_GUEST_IMAGE}/#{guest}.img") or raise "Couldn't create #{KVM_GUEST_IMAGE}/#{guest}.img".red
   puts "Adding diskspace to have: #{size}Gb available"

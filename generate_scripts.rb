@@ -45,9 +45,20 @@ if backend == "mysql"
     client = Mysql2::Client.new(:host => "localhost", :username => "root", :password => mysql_password)
     client.query "CREATE DATABASE IF NOT EXISTS cloud_control CHARACTER SET utf8 COLLATE utf8_general_ci"
     client.query "CREATE TABLE IF NOT EXISTS cloud_control.guests \
-      (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(25), ip VARCHAR(17))"
+      (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(25), ip VARCHAR(17), vnc_port INT)"
   rescue Mysql2::Error => e
     puts e.error
   end
-puts "\nDatabase \"cloudcontrol\" created!"
+  puts "\nDatabase \"cloud_control\" created!"
+elsif backend == "postgres"
+  begin
+    system("createdb -p 5432 -O pguser -U pguser -E UTF8 cloud_control")
+    require 'pg'
+    conn = PG::Connection.open(:dbname => "cloud_control", :user => "pguser")
+    conn.exec_params('CREATE TABLE IF NOT EXISTS guests (
+      id serial PRIMARY KEY, name varchar(25) NOT NULL, ip varchar(17) NOT NULL, vnc_port int)')
+  rescue PG::Error => e
+    puts e.error
+  end
+  puts "\nDatabase \"cloud_control\" created!"
 end

@@ -1,20 +1,9 @@
 #!/usr/bin/ruby
 
-def create_db
+def add_guest(name, ip, vnc_port)
   begin
     client = Mysql2::Client.new(:host => "localhost", :username => "root", :password => MYSQL_PASSWORD)
-    client.query "CREATE DATABASE IF NOT EXISTS cloud_control CHARACTER SET utf8 COLLATE utf8_general_ci"
-    client.query "CREATE TABLE IF NOT EXISTS cloud_control.guests \
-      (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(25), ip VARCHAR(17))"
-  rescue Mysql2::Error => e
-    puts e.error
-  end
-end
-
-def add_guest(name, ip)
-  begin
-    client = Mysql2::Client.new(:host => "localhost", :username => "root", :password => MYSQL_PASSWORD)
-    client.query "INSERT INTO cloud_control.guests (name, ip) VALUES ('#{name}', '#{ip}')"
+    client.query "INSERT INTO cloud_control.guests (name, ip, vnc_port) VALUES ('#{name}', '#{ip}', '#{vnc_port}')"
   rescue Mysql2::Error => e
     puts e.error
   end

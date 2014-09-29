@@ -14,6 +14,8 @@ def generate_ip (name)
     ip_in_use << lines.tr("\n","")
   end<% elsif backend == "mysql" %>
   require_relative "#{RUNDECK_SCRIPTS}/mysql_backend.rb"
+  ip_in_use = get_ips_list<% elsif backend == "postgres" %>
+  require_relative "#{RUNDECK_SCRIPTS}/postgres_backend.rb"
   ip_in_use = get_ips_list<% end %>
 
   #list of IPs in use
@@ -26,7 +28,7 @@ def generate_ip (name)
   available= vm_ip_range - ip_in_use
 
   if available[0].nil?
-    puts "no more IPs available! Stopping...\n".red.bold
+    puts "\nno more IPs available! Stopping...\n".red.bold
     exit 1
   end
 
@@ -43,5 +45,5 @@ def generate_ip (name)
   File.open(IP_FILE, "a") {|f|
     f << "#{available[0]}\n"
   }
-  File.chmod(0664, IP_FILE)<% elsif backend == "mysql" %>return ip<% end %>
+  File.chmod(0664, IP_FILE)<% elsif backend == "mysql" || backend == "postgres" %>return ip<% end %>
 end

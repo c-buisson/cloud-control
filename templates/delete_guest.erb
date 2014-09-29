@@ -24,6 +24,9 @@ if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "file" %>
   File.chmod(0664, IP_FILE)<% elsif backend == "mysql" %>
   require_relative "#{RUNDECK_SCRIPTS}/mysql_backend.rb"
   ip = guest_ip guest
+  remove_guest guest<% elsif backend == "postgres" %>
+  require_relative "#{RUNDECK_SCRIPTS}/postgres_backend.rb"
+  ip = guest_ip guest
   remove_guest guest<% end %>
   puts "#{guest}'s IP address (" + ip.chomp.bold + ") was released"
 else

@@ -6,7 +6,7 @@ end_ip=""
 gateway_ip=""
 mysql_password="cloudcontrol"
 
-if [ -z "$backend" ]; then echo -e "Please set a backend type for the VMs' data\n\n  Choose between: file OR mysql" && exit 1; fi
+if [ -z "$backend" ]; then echo -e "Please set a backend type for the VMs' data\n\n  Choose between: file, mysql OR postgres" && exit 1; fi
 if [ -z "$start_ip" ] || [ -z "$end_ip" ]; then echo -e "Please set an IP Range!\n" && exit 1; fi
 if [ -z "$gateway_ip" ]; then echo -e "Please set a gateway IP!\n" && exit 1; fi
 
@@ -19,8 +19,8 @@ curl -sSL https://get.rvm.io | bash
 source ~/.rvm/scripts/rvm
 type rvm | head -n 1
 echo "System and RVM requirements"
-sudo apt-get update && apt-get -y install libcurl3 libcurl3-gnutls libcurl4-openssl-dev qemu-utils bzr
-bzr branch lp:cloud-utils
+sudo apt-get update
+sudo apt-get -y install libcurl3 libcurl3-gnutls libcurl4-openssl-dev qemu-utils cloud-utils
 rvm requirements
 echo "Installing: Ruby ${RUBY_VERSION}"
 rvm install ruby-$RUBY_VERSION
@@ -29,7 +29,7 @@ echo "Installing: bundler"
 gem install bundler --no-ri --no-rdoc
 bundle install
 echo "Creating kvm_guests and sources folders"
-mkdir kvm_guests sources/{iso,cloud_images}
+mkdir -p kvm_guests sources/{iso,cloud_images}
 
 if [[ $backend == "file" ]]; then
   mkdir interfaces
@@ -43,6 +43,12 @@ elif [[ $backend == "mysql" ]]; then
   export DEBIAN_FRONTEND=noninteractive
   sudo apt-get install -q -y mysql-server mysql-client libmysqlclient-dev
   gem install mysql2
+elif [[ $backend == "postgres" ]]; then
+  sudo apt-get -y install postgresql libpq-dev
+  gem install pg
+  sudo su - postgres -c "createuser pguser -s"
+  echo -e "local all postgres peer\nlocal all pguser trust\nlocal all all peer\nhost all all 127.0.0.1/32 md5" | sudo tee /etc/postgresql/9.3/main/pg_hba.conf
+  sudo service postgresql restart
 else
   echo "Backend: ${backend} not supported!"
   exit 1
