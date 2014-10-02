@@ -5,15 +5,38 @@ backend=ARGV[0]
 start_ip=ARGV[1]
 end_ip=ARGV[2]
 gateway_ip=ARGV[3]
-mysql_password=ARGV[4]
+data_folder=ARGV[4]
+mysql_password=ARGV[5]
 pwd=`/bin/pwd`
-
-scripts=["delete_guest", "generate_static_ip", "generate_xml"]
 
 #Generate ENV file
 template = ERB.new(File.read("templates/ENV.erb"))
 xml_content = template.result(binding)
-File.open("ENV", "w") do |file|
+File.open("#{data_folder}/ENV", "w") do |file|
+  file.puts xml_content
+end
+
+#Generate generate_static_ip.rb file
+template = ERB.new(File.read("templates/generate_static_ip.erb"))
+xml_content = template.result(binding)
+File.open("#{data_folder}/lib/generate_static_ip.rb", "w") do |file|
+  file.puts xml_content
+end
+
+#Generate Rundeck XML
+template = ERB.new(File.read("templates/rundeck_jobs.xml.erb"))
+xml_content = template.result(binding)
+File.open("#{data_folder}/rundeck_jobs.xml", "w") do |file|
+  file.puts xml_content
+end
+
+system("sudo su rundeck -c 'rd-project -p cloud-control -a create'")
+system("sudo su rundeck -c 'rd-jobs load -r -f #{data_folder}/rundeck_jobs.xml -p cloud-control'")
+
+#Generate get_images.rb file
+template = ERB.new(File.read("templates/get_images.erb"))
+xml_content = template.result(binding)
+File.open("#{data_folder}/get_images.rb", "w") do |file|
   file.puts xml_content
 end
 
@@ -21,23 +44,14 @@ end
 var = "<%= ip %>"
 template = ERB.new(File.read("templates/TEMPLATE-user-data.erb"))
 xml_content = template.result(binding)
-File.open("templates/TEMPLATE-user-data.erb", "w") do |file|
+File.open("#{data_folder}/templates/TEMPLATE-user-data.erb", "w") do |file|
   file.puts xml_content
 end
 
-guest=""
-eval File.read("ENV")
-#Generate files from ERB
-scripts.each do |s|
-  template = ERB.new(File.read("templates/"+s+".erb"))
-  xml_content = template.result(binding)
-  File.open("rundeck_scripts/"+s+".rb", "w") do |file|
-    file.puts xml_content
-  end
-  system("chmod 775 \"rundeck_scripts/\"#{s}\".rb\"")
-end
+system("sudo cp templates/TEMPLATE.xml.erb #{data_folder}/templates/")
+system("sudo chown -R rundeck. #{data_folder}")
 
-puts "\nAll the scripts were generated!\n Backend: #{backend}\n Ip Range: #{start_ip} to #{end_ip}"
+puts "\nAll the scripts were generated!\n Cloud-Control folder location: #{data_folder}\n Backend: #{backend}\n Ip Range: #{start_ip} to #{end_ip}"
 
 if backend == "mysql"
   begin

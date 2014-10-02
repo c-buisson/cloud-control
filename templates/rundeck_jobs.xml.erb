@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<joblist>
+  <job>
+    <id>0ecde969-5e0e-4911-a775-30e22b567ea6</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing="false" strategy="node-first">
+      <command>
+        <scriptargs/>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=ENV['RD_OPTION_NAME']
+eval File.read("<%= data_folder %>/ENV")
+
+puts "Creating guest #{guest}...".cyan.bold
+system("virsh create #{GUEST}/#{guest}.xml") or raise "The KVM instance didn't spawn..."
+
+system("virsh define #{GUEST}/#{guest}.xml") or raise "Couldn't define that instance..."
+
+puts "Check if #{guest} is running in virsh:"
+system("virsh list --all |grep #{guest}")
+
+puts ""
+vnc=`grep vnc #{GUEST}/#{guest}.xml |awk '{print $3}' |cut -d '=' -f2 |cut -d "'" -f2`
+puts "You can VNC to that server at: " + "0.0.0.0:#{vnc}".bold]]></script>
+      </command>
+    </sequence>
+    <description>Will use the guest's xml and start the vm with VIRSH.</description>
+    <name>3.Create VIRSH guest</name>
+    <context>
+      <project>20</project>
+      <options>
+        <option name="name" required="true"/>
+      </options>
+    </context>
+    <uuid>0ecde969-5e0e-4911-a775-30e22b567ea6</uuid>
+  </job>
+  <job>
+    <id>eb389931-e126-45aa-9709-87e9d7c062fa</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing="false" strategy="node-first">
+      <command>
+        <scriptargs/>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=ENV['RD_OPTION_NAME']
+eval File.read("<%= data_folder %>/ENV")
+
+#Access def.rb library file
+require_relative "#{LIB}/def.rb"
+
+#Checking if there is at least one guest on the system
+xml = Dir["#{GUESTS_DIR}/*/*.xml"]
+if xml[0].nil?
+  new_vnc_port="5901"
+  new_mac_address="52:54:aa:" + (1..3).map{"%0.2X"%rand(256)}.join(":").downcase
+  puts "First guest on that server!\n Assigning VNC port: #{new_vnc_port} and mac_address: #{new_mac_address}".bold
+else
+  #Calling the method generate_value for a new vnc_port and a new mac_address
+  vnc_ports_use = generate_value "vnc", 59, "'", "vnc_ports_use"
+  mac_address_use = generate_value "mac address", ":", "'/>", "mac_address_use"
+
+  #Found the higher VNC port number and add 1 to it.
+  new_vnc_port=vnc_ports_use.sort.last.to_i+1
+  #Generates a random MAC address
+  new_mac_address="52:54:aa:" + (1..3).map{"%0.2X"%rand(256)}.join(":").downcase
+  #Test is the generated mac is already in use by a guest.
+  mac_address_use.each do |mac|
+    if mac == new_mac_address
+      puts "The generated mac_address is already assigned to another KVM guest...".red.bold
+      exit 1
+    end
+  end
+end
+
+#Creating sub-directories
+Dir.mkdir(GUEST) unless Dir.exist?(GUEST)
+Dir.mkdir(SNAPSHOTS) unless Dir.exist?(SNAPSHOTS)
+Dir.mkdir(KVM_GUEST_IMAGE) unless Dir.exist?(KVM_GUEST_IMAGE)
+
+#Guessing which type of source we need to create an XML for
+if ENV['RD_OPTION_SOURCE'].end_with? "iso"
+  puts "Generating XML file for an ISO".cyan.bold
+  type="iso"
+elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
+  puts "Generating XML file for a Cloud Image".cyan.bold
+  type="cloud"
+
+  #generating interface file with a static IP
+  Dir.mkdir(USER_DATA) unless Dir.exist?(USER_DATA)
+  require_relative "#{LIB}/generate_static_ip.rb"
+  ip = generate_ip ENV['RD_OPTION_NAME']<% if backend == "mysql" %>
+  require_relative "#{LIB}/mysql_backend.rb"
+  add_guest guest, ip, new_vnc_port<% elsif backend == "postgres" %>
+  require_relative "#{LIB}/postgres_backend.rb"
+  add_guest guest, ip, new_vnc_port<% end %>
+
+  #generating user-data file to setup the guest hostname
+  system("cloud-localds -H #{ENV['RD_OPTION_NAME']} #{USER_DATA}/user-data-#{ENV['RD_OPTION_NAME']}.img #{USER_DATA}/#{ENV['RD_OPTION_NAME']}-user-data.erb") or raise "Couldn't generate User Date image!".red
+  user_data="user-data-#{ENV['RD_OPTION_NAME']}.img"
+else
+  puts "Wrong source type! Must be 'iso' or 'cloud'".red
+  puts "Source: #{ENV['RD_OPTION_SOURCE']}"
+  exit 1
+end
+
+#Collecting data from Rundeck
+name=ENV['RD_OPTION_NAME']
+uuid=SecureRandom.uuid
+ram=ENV['RD_OPTION_RAM'].to_i*1024
+cores=ENV['RD_OPTION_CORES'].to_i
+source=ENV['RD_OPTION_SOURCE']
+mac_address=new_mac_address
+vnc_port=new_vnc_port
+
+#Generate template for the new guest
+template = ERB.new(File.read("#{TEMPLATES}/TEMPLATE.xml.erb"))
+xml_content = template.result(binding)
+File.open(XML, "w") do |file|
+  file.puts xml_content
+end
+
+puts "New XML file created at: " + XML.underline]]></script>
+      </command>
+    </sequence>
+    <description>This will generate a guest XML.</description>
+    <name>2.Create guest XML</name>
+    <context>
+      <project>20</project>
+      <options>
+        <option name="cores" value="1" values="1,2" required="true">
+          <description>Number of cores</description>
+        </option>
+        <option name="name" required="true">
+          <description>Guest's name</description>
+        </option>
+        <option name="ram" value="256" values="1024,2048,256,512">
+          <description>in Mb</description>
+        </option>
+        <option name="source" value="trusty-server-cloudimg-amd64-disk1.img" values="ubuntu-14.04.1-server-amd64.iso,trusty-server-cloudimg-amd64-disk1.img">
+          <description>Cloud Image or ISO</description>
+        </option>
+      </options>
+    </context>
+    <uuid>eb389931-e126-45aa-9709-87e9d7c062fa</uuid>
+  </job>
+  <job>
+    <id>340bfb41-a016-4664-b29e-1850525476a6</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing="false" strategy="node-first">
+      <command>
+        <scriptargs/>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=ENV['RD_OPTION_NAME']
+eval File.read("<%= data_folder %>/ENV")
+
+size=ENV['RD_OPTION_SIZE']
+source=ENV['RD_OPTION_SOURCE']
+
+puts "Creating image file for KVM\n".cyan.bold
+
+#Creating sub-directories
+Dir.mkdir(GUEST)
+Dir.mkdir(SNAPSHOTS)
+Dir.mkdir(KVM_GUEST_IMAGE)
+
+if source.end_with? "iso"
+  puts "That image will be blank (iso mode)\e"
+  system("qemu-img create -f qcow2 #{KVM_GUEST_IMAGE}/#{guest}.img #{size}G")
+elsif source.end_with? "img"
+  puts "That image will be a Cloud image\e"
+  system("qemu-img convert -O qcow2 #{CLOUD_IMAGES}/#{source} #{KVM_GUEST_IMAGE}/#{guest}.img") or raise "Couldn't create #{KVM_GUEST_IMAGE}/#{guest}.img".red
+  puts "Adding diskspace to have: #{size}Gb available"
+  system("qemu-img resize #{KVM_GUEST_IMAGE}/#{guest}.img +`expr #{size} - 2`G") or raise "Couldn't resize #{KVM_GUEST_IMAGE}/#{guest}.img to #{size}".red
+end
+
+puts ""
+puts "New image info\n".underline
+system("qemu-img info #{KVM_GUEST_IMAGE}/#{guest}.img")
+puts ""]]></script>
+      </command>
+    </sequence>
+    <description>Create a QEMU file for KVM.</description>
+    <name>1.Create image disk</name>
+    <context>
+      <project>20</project>
+      <options>
+        <option name="name" required="true">
+          <description>Guest's name</description>
+        </option>
+        <option name="size" required="true">
+          <description>Disk space in Gb</description>
+        </option>
+        <option name="source" value="trusty-server-cloudimg-amd64-disk1.img" values="trusty-server-cloudimg-amd64-disk1.img,ubuntu-14.04.1-server-amd64.iso">
+          <description>Cloud Image or ISO</description>
+        </option>
+      </options>
+    </context>
+    <uuid>340bfb41-a016-4664-b29e-1850525476a6</uuid>
+  </job>
+  <job>
+    <id>d178c0da-7b26-46dd-89ee-76f10b4adc09</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing="false" strategy="node-first">
+      <command>
+        <scriptargs/>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=ENV['RD_OPTION_NAME']
+eval File.read("<%= data_folder %>/ENV")
+
+puts "Check is instance is running..."
+system("virsh list --all |grep #{guest}")
+
+puts ""
+puts "virsh destroy #{guest.red.bold}"
+system("virsh destroy #{guest}")
+
+puts""
+puts "virsh undefine #{guest.red.bold}"
+system("virsh undefine #{guest}")
+
+if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "file" %>
+  ip=`cat #{USER_DATA}/#{guest}-user-data.erb |grep address |awk '{printf "%s", $2'}`
+  tmp = Tempfile.new("extract")
+  File.open(IP_FILE, 'r').each { |l| tmp << l unless l.chomp == ip }
+  tmp.close
+  FileUtils.mv(tmp.path, IP_FILE)
+  File.chmod(0664, IP_FILE)<% elsif backend == "mysql" %>
+  require_relative "#{LIB}/mysql_backend.rb"
+  ip = guest_ip guest
+  remove_guest guest<% elsif backend == "postgres" %>
+  require_relative "#{LIB}/postgres_backend.rb"
+  ip = guest_ip guest
+  remove_guest guest<% end %>
+  puts "#{guest}'s IP address (" + ip.chomp.bold + ") was released"
+else
+  puts "No user-data for that guest, no static IP to release\n"
+end
+
+puts "removing folder: " + "#{GUEST}/\n".red
+FileUtils.rm_rf(GUEST)
+
+puts "Instance destroyed and files removed"
+puts "Carry on..."]]></script>
+      </command>
+    </sequence>
+    <description>Destroy the vm and remove all the files.</description>
+    <name>Delete guest</name>
+    <context>
+      <project>20</project>
+      <options>
+        <option name="name" required="true">
+          <description>Guest's name</description>
+        </option>
+      </options>
+    </context>
+    <uuid>d178c0da-7b26-46dd-89ee-76f10b4adc09</uuid>
+  </job>
+  <job>
+    <id>89f2efe8-2091-430a-88a6-07a992c77862</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing="false" strategy="node-first">
+      <command>
+        <jobref name="1.Create image disk">
+          <arg line="-name ${option.name} -size ${option.size} -type ${option.source}"/>
+        </jobref>
+      </command>
+      <command>
+        <jobref name="2.Create guest XML">
+          <arg line="-name ${option.name} -ram ${option.ram} -cores ${option.cores} -source ${option.source}"/>
+        </jobref>
+      </command>
+      <command>
+        <jobref name="3.Create VIRSH guest">
+          <arg line="-name ${option.name}"/>
+        </jobref>
+      </command>
+    </sequence>
+    <description>Launch a new instance!</description>
+    <name>.Launch KVM guest</name>
+    <context>
+      <project>20</project>
+      <options>
+        <option name="cores" value="1" values="1,2">
+          <description>Number of cores</description>
+        </option>
+        <option name="name" required="true">
+          <description>Guest's name</description>
+        </option>
+        <option name="ram" value="256" values="1024,2048,256,512">
+          <description>in Mb</description>
+        </option>
+        <option name="size" required="true">
+          <description>Disk space in Gb</description>
+        </option>
+        <option name="source" value="trusty-server-cloudimg-amd64-disk1.img" values="ubuntu-14.04.1-server-amd64.iso,trusty-server-cloudimg-amd64-disk1.img">
+          <description>Cloud image or ISO</description>
+        </option>
+      </options>
+    </context>
+    <uuid>89f2efe8-2091-430a-88a6-07a992c77862</uuid>
+  </job>
+</joblist>

@@ -13,9 +13,9 @@ def generate_ip (name)
   file = File.open(IP_FILE).each do |lines|
     ip_in_use << lines.tr("\n","")
   end<% elsif backend == "mysql" %>
-  require_relative "#{RUNDECK_SCRIPTS}/mysql_backend.rb"
+  require_relative "#{LIB}/mysql_backend.rb"
   ip_in_use = get_ips_list<% elsif backend == "postgres" %>
-  require_relative "#{RUNDECK_SCRIPTS}/postgres_backend.rb"
+  require_relative "#{LIB}/postgres_backend.rb"
   ip_in_use = get_ips_list<% end %>
 
   #list of IPs in use
@@ -38,7 +38,7 @@ def generate_ip (name)
   #Generate template for the new guest
   template = ERB.new(File.read("#{TEMPLATES}/TEMPLATE-user-data.erb"))
   interfaces = template.result(binding)
-  File.open("#{USER_DATA}/#{ARGV[0]}-user-data.erb", "w") do |file|
+  File.open("#{USER_DATA}/#{name}-user-data.erb", "w") do |file|
     file.puts interfaces
   end
   <% if backend == "file" %>

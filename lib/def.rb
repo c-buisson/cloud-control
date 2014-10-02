@@ -2,7 +2,7 @@
 
 def generate_value (value_name, search, separator, array_name)
 array_name=[]
-Dir.glob("#{KVM_DIR}/*/*.xml").each do |files|
+Dir.glob("#{GUESTS_DIR}/*/*.xml").each do |files|
   File.open(files, "r").each_line do |line|
     if line.include?(value_name)
       line.split(' ').each do |split|

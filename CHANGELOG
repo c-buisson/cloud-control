@@ -1,0 +1,52 @@
+CHANGELOG
+=========
+
+1.0: 2014-10-01
+----------------
+New feature:
+- Upload "ready to use" Rundeck Jobs automatically.
+
+Updates:
+- Ditched RVM, using ruby package instead.
+- Rename "rundeck_scripts" directory to "lib".
+- The setup script will now create /srv/cloud-control and generate/copy all the files and directories needed.
+- Moved all the Ruby script to actual Rundeck Jobs.
+- Added "data_folder" variable to the setup script.
+- Removed unneeded HOME variable from ENV file.
+- Removed unneeded curb gem from Gemfile.
+- get_images.rb is now using the curb gem instead of a wget system call.
+- RUNDECK_SCRIPTS variable got renamed to LIB.
+- Generate Rundeck Jobs XMLs based on user environment.
+- build-essential added to packages list.
+- Add rundeck user to libvirts and kvm Unix groups.
+- The setup script will now fetch the current Trusty 14.04 LTS version from: https://cloud-images.ubuntu.com
+- Added .gitignore file.
+- Added CHANGELOG file.
+
+0.3: 2014-09-28
+----------------
+New features:
+- PostgreSQL backend support.
+- New vnc_port field added to backend DBs.
+
+Updates:
+- bzr package no needed anymore.
+- cloud-utils package added.
+- Removed CLOUD_UTILS variable.
+- source.include? "origin" to "img".
+
+Fixed:
+- generate_xml "Checking if there is at least one guest on the system". Logic fixed.
+
+0.2: 2014-09-25
+----------------
+New feature:
+- MySQL backend support.
+
+0.1: 2014-09-03
+----------------
+- First Cloud-Control commit!
+
+2014-08-21
+----------
+- Initial commit
