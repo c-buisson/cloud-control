@@ -16,14 +16,14 @@ write_files:
         # The primary network interface
         auto eth0
         iface eth0 inet static
-        address <%= var %>
+        address <%= ip %>
         netmask 255.255.255.0
-        gateway <%= gateway_ip %>
+        gateway 192.168.122.1
     path: /home/ubuntu/static_ip
     permissions: '0644'
     owner: root:root
 -   content: |
-        nameserver <%= gateway_ip %>
+        nameserver 192.168.122.1
     path: /home/ubuntu/resolv
     permissions: '0644'
     owner: root:root

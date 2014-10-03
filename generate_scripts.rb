@@ -49,6 +49,7 @@ File.open("#{data_folder}/templates/TEMPLATE-user-data.erb", "w") do |file|
 end
 
 system("sudo cp templates/TEMPLATE.xml.erb #{data_folder}/templates/")
+system("sudo cp templates/TEMPLATE-user-data-nat.erb #{data_folder}/templates/")
 system("sudo chown -R rundeck. #{data_folder}")
 
 puts "\nAll the scripts were generated!\n Cloud-Control folder location: #{data_folder}\n Backend: #{backend}\n Ip Range: #{start_ip} to #{end_ip}"

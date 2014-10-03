@@ -1,6 +1,14 @@
 CHANGELOG
 =========
 
+1.1: 2014-10-02
+----------------
+New feature:
+- NAT support for the VMs.
+
+Update:
+- Added gateway_ip variable to TEMPLATE-user-data.erb.
+
 1.0: 2014-10-01
 ----------------
 New feature:

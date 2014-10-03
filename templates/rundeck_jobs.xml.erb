@@ -78,6 +78,16 @@ Dir.mkdir(GUEST) unless Dir.exist?(GUEST)
 Dir.mkdir(SNAPSHOTS) unless Dir.exist?(SNAPSHOTS)
 Dir.mkdir(KVM_GUEST_IMAGE) unless Dir.exist?(KVM_GUEST_IMAGE)
 
+#Set the proper network_type
+if ENV['RD_OPTION_NETWORK_TYPE'] == "nat"
+  network_type="virbr0"
+elsif ENV['RD_OPTION_NETWORK_TYPE'] == "floating"
+  network_type="br0"
+else
+  puts "Non supported network_type... Stopping!"
+  exit 1
+end
+
 #Guessing which type of source we need to create an XML for
 if ENV['RD_OPTION_SOURCE'].end_with? "iso"
   puts "Generating XML file for an ISO".cyan.bold
@@ -89,7 +99,7 @@ elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
   #generating interface file with a static IP
   Dir.mkdir(USER_DATA) unless Dir.exist?(USER_DATA)
   require_relative "#{LIB}/generate_static_ip.rb"
-  ip = generate_ip ENV['RD_OPTION_NAME']<% if backend == "mysql" %>
+  ip = generate_ip ENV['RD_OPTION_NAME'], ENV['RD_OPTION_NETWORK_TYPE']<% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
   add_guest guest, ip, new_vnc_port<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
@@ -102,6 +112,13 @@ else
   puts "Wrong source type! Must be 'iso' or 'cloud'".red
   puts "Source: #{ENV['RD_OPTION_SOURCE']}"
   exit 1
+end
+
+#Set the proper network_type
+if ENV['RD_OPTION_NETWORK_TYPE'] == "nat"
+  network_type="virbr0"
+else ENV['RD_OPTION_NETWORK_TYPE'] == "floating"
+  network_type="br0"
 end
 
 #Collecting data from Rundeck
@@ -133,6 +150,9 @@ puts "New XML file created at: " + XML.underline]]></script>
         </option>
         <option name="name" required="true">
           <description>Guest's name</description>
+        </option>
+        <option name='network_type' value='nat' values='floating,nat'>
+          <description>NAT or Floating IP?</description>
         </option>
         <option name="ram" value="256" values="1024,2048,256,512">
           <description>in Mb</description>
@@ -269,7 +289,7 @@ puts "Carry on..."]]></script>
       </command>
       <command>
         <jobref name="2.Create guest XML">
-          <arg line="-name ${option.name} -ram ${option.ram} -cores ${option.cores} -source ${option.source}"/>
+          <arg line="-name ${option.name} -ram ${option.ram} -cores ${option.cores} -source ${option.source} -network_type ${option.network_type}"/>
         </jobref>
       </command>
       <command>
@@ -288,6 +308,9 @@ puts "Carry on..."]]></script>
         </option>
         <option name="name" required="true">
           <description>Guest's name</description>
+        </option>
+        <option name='network_type' value='nat' values='floating,nat'>
+          <description>NAT or Floating IP?</description>
         </option>
         <option name="ram" value="256" values="1024,2048,256,512">
           <description>in Mb</description>

@@ -1,14 +1,23 @@
 #!/usr/bin/env ruby
 
-def generate_ip (name)
+def generate_ip (name, network_type)
 
   #Creating the 2 arrays
   ip_in_use=[]
   vm_ip_range=[]
 
   #IP range
-  start_ip = IPAddr.new(START_IP)
-  end_ip   = IPAddr.new(END_IP)
+  if network_type == "nat"
+    start_ip = IPAddr.new(NAT_START_IP)
+    end_ip   = IPAddr.new(NAT_END_IP)
+  elsif network_type == "floating"
+    start_ip = IPAddr.new(START_IP)
+    end_ip   = IPAddr.new(END_IP)
+  else
+    puts "Non supported network_type: #{network_type}... Stopping!".red.bold
+    exit 1
+  end
+
   <% if backend == "file" %>
   file = File.open(IP_FILE).each do |lines|
     ip_in_use << lines.tr("\n","")
@@ -36,7 +45,11 @@ def generate_ip (name)
   ip = available[0]
 
   #Generate template for the new guest
-  template = ERB.new(File.read("#{TEMPLATES}/TEMPLATE-user-data.erb"))
+  if network_type == "nat"
+    template = ERB.new(File.read("#{TEMPLATES}/TEMPLATE-user-data-nat.erb"))
+  else
+    template = ERB.new(File.read("#{TEMPLATES}/TEMPLATE-user-data.erb"))
+  end
   interfaces = template.result(binding)
   File.open("#{USER_DATA}/#{name}-user-data.erb", "w") do |file|
     file.puts interfaces
