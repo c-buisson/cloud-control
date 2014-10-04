@@ -101,9 +101,13 @@ elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
   require_relative "#{LIB}/generate_static_ip.rb"
   ip = generate_ip ENV['RD_OPTION_NAME'], ENV['RD_OPTION_NETWORK_TYPE']<% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port<% elsif backend == "postgres" %>
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE']
+  require_relative "#{LIB}/vm_list.rb"
+  add_guest_to_vm_list guest, ip<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port<% end %>
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE']
+  require_relative "#{LIB}/vm_list.rb"
+  add_guest_to_vm_list guest, ip<% end %>
 
   #generating user-data file to setup the guest hostname
   system("cloud-localds -H #{ENV['RD_OPTION_NAME']} #{USER_DATA}/user-data-#{ENV['RD_OPTION_NAME']}.img #{USER_DATA}/#{ENV['RD_OPTION_NAME']}-user-data.erb") or raise "Couldn't generate User Date image!".red
@@ -250,10 +254,14 @@ if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "file" %>
   File.chmod(0664, IP_FILE)<% elsif backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
   ip = guest_ip guest
-  remove_guest guest<% elsif backend == "postgres" %>
+  remove_guest guest
+  require_relative "#{LIB}/vm_list.rb"
+  delete_guest_from_vm_list guest, ip<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
   ip = guest_ip guest
-  remove_guest guest<% end %>
+  remove_guest guest
+  require_relative "#{LIB}/vm_list.rb"
+  delete_guest_from_vm_list guest, ip<% end %>
   puts "#{guest}'s IP address (" + ip.chomp.bold + ") was released"
 else
   puts "No user-data for that guest, no static IP to release\n"
@@ -271,7 +279,7 @@ puts "Carry on..."]]></script>
     <context>
       <project>20</project>
       <options>
-        <option name="name" required="true">
+        <option name="name" valuesUrl='file:<%= data_folder %>/vm_list.json' required="true">
           <description>Guest's name</description>
         </option>
       </options>

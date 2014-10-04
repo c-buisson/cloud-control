@@ -1,6 +1,18 @@
 CHANGELOG
 =========
 
+1.2: 2014-10-03
+---------------
+New feature:
+- "Delete guest" job has a dropdown list of VMs to delete.
+
+Updates:
+- Refactored code that generates templates in "generate_scripts.rb".
+- New column "network_type" in table guests.
+- Added JSON gem.
+- Clean up ENV.erb.
+- Renamed get_images.erb to get_images.rb.erb.
+
 1.1: 2014-10-02
 ----------------
 New feature:

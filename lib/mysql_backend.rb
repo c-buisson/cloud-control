@@ -1,9 +1,9 @@
 #!/usr/bin/ruby
 
-def add_guest(name, ip, vnc_port)
+def add_guest(name, ip, vnc_port, network_type)
   begin
     client = Mysql2::Client.new(:host => "localhost", :username => "root", :password => MYSQL_PASSWORD)
-    client.query "INSERT INTO cloud_control.guests (name, ip, vnc_port) VALUES ('#{name}', '#{ip}', '#{vnc_port}')"
+    client.query "INSERT INTO cloud_control.guests (name, ip, vnc_port, network_type) VALUES ('#{name}', '#{ip}', '#{vnc_port}', '#{network_type}')"
   rescue Mysql2::Error => e
     puts e.error
   end

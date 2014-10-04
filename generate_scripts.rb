@@ -7,7 +7,6 @@ end_ip=ARGV[2]
 gateway_ip=ARGV[3]
 data_folder=ARGV[4]
 mysql_password=ARGV[5]
-pwd=`/bin/pwd`
 
 #Generate ENV file
 template = ERB.new(File.read("templates/ENV.erb"))
@@ -16,29 +15,28 @@ File.open("#{data_folder}/ENV", "w") do |file|
   file.puts xml_content
 end
 
-#Generate generate_static_ip.rb file
-template = ERB.new(File.read("templates/generate_static_ip.erb"))
-xml_content = template.result(binding)
-File.open("#{data_folder}/lib/generate_static_ip.rb", "w") do |file|
-  file.puts xml_content
+#Generate lib files
+lib_files = ["generate_static_ip", "vm_list"]
+lib_files.each do |file|
+  template = ERB.new(File.read("templates/#{file}.erb"))
+  xml_content = template.result(binding)
+  File.open("#{data_folder}/lib/#{file}.rb", "w") do |file|
+    file.puts xml_content
+  end
 end
 
-#Generate Rundeck XML
-template = ERB.new(File.read("templates/rundeck_jobs.xml.erb"))
-xml_content = template.result(binding)
-File.open("#{data_folder}/rundeck_jobs.xml", "w") do |file|
-  file.puts xml_content
+#Generate misc files
+misc_files = ["rundeck_jobs.xml", "get_images.rb"]
+misc_files.each do |misc|
+  template = ERB.new(File.read("templates/#{misc}.erb"))
+  xml_content = template.result(binding)
+  File.open("#{data_folder}/#{misc}", "w") do |file|
+    file.puts xml_content
+  end
 end
 
 system("sudo su rundeck -c 'rd-project -p cloud-control -a create'")
 system("sudo su rundeck -c 'rd-jobs load -r -f #{data_folder}/rundeck_jobs.xml -p cloud-control'")
-
-#Generate get_images.rb file
-template = ERB.new(File.read("templates/get_images.erb"))
-xml_content = template.result(binding)
-File.open("#{data_folder}/get_images.rb", "w") do |file|
-  file.puts xml_content
-end
 
 #Generate user-data template file
 var = "<%= ip %>"
@@ -60,7 +58,7 @@ if backend == "mysql"
     client = Mysql2::Client.new(:host => "localhost", :username => "root", :password => mysql_password)
     client.query "CREATE DATABASE IF NOT EXISTS cloud_control CHARACTER SET utf8 COLLATE utf8_general_ci"
     client.query "CREATE TABLE IF NOT EXISTS cloud_control.guests \
-      (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(25), ip VARCHAR(17), vnc_port INT)"
+      (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(25), ip VARCHAR(17), vnc_port INT, network_type VARCHAR(8))"
   rescue Mysql2::Error => e
     puts e.error
   end
@@ -71,7 +69,7 @@ elsif backend == "postgres"
     require 'pg'
     conn = PG::Connection.open(:dbname => "cloud_control", :user => "pguser")
     conn.exec_params('CREATE TABLE IF NOT EXISTS guests (
-      id serial PRIMARY KEY, name varchar(25) NOT NULL, ip varchar(17) NOT NULL, vnc_port int)')
+      id serial PRIMARY KEY, name varchar(25) NOT NULL, ip varchar(17) NOT NULL, vnc_port int, network_type varchar(8))')
   rescue PG::Error => e
     puts e.error
   end

@@ -1,9 +1,9 @@
 #!/usr/bin/ruby
 
-def add_guest(name, ip, vnc_port)
+def add_guest(name, ip, vnc_port, network_type)
   begin
     conn = PG::Connection.open(:dbname => "cloud_control", :user => "pguser")
-    conn.exec_params "INSERT INTO guests (name, ip, vnc_port) VALUES ('#{name}', '#{ip}', '#{vnc_port}')"
+    conn.exec_params "INSERT INTO guests (name, ip, vnc_port, network_type) VALUES ('#{name}', '#{ip}', '#{vnc_port}', '#{network_type}')"
   rescue PG::Error => e
     puts e.error
   end
