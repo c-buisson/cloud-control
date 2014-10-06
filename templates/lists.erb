@@ -1,0 +1,58 @@
+#!/usr/bin/ruby
+
+require 'json'
+
+def add_to_list(type, attr, misc)
+
+  if type == "vm"
+    list="<%= data_folder %>/lists/vm_list.json"
+  elsif type == "source"
+    list="<%= data_folder %>/lists/source_list.json"
+  else
+    puts "Unsupported type!".red
+    exit 1
+  end
+
+  unless File.exists?(list)
+    puts "No JSON file yet, creating one..."
+
+    first="\"#{attr}: #{misc}\": #{attr.to_json}"
+
+    f=File.new(list, "w")
+      f << "{"+first+"}"
+    f.close
+
+  else
+
+    f=File.read(list).to_s.gsub("=>", ":")
+    y=JSON.parse(f)
+
+    y["#{attr}: #{misc}"] = attr
+
+    f=File.open(list, "w")
+      f << y
+    f.close
+
+  end
+end
+
+def delete_from_list(type, attr, misc)
+
+  if type == "vm"
+    list="<%= data_folder %>/lists/vm_list.json"
+  elsif type == "source"
+    list="<%= data_folder %>/lists/source_list.json"
+  else
+    puts "Unsupported type!".red
+    exit 1
+  end
+
+  f=File.read(list).to_s.gsub("=>", ":")
+  y=JSON.parse(f)
+  y.delete("#{attr}: #{misc}")
+
+  f=File.open(list, "w")
+    f << y
+  f.close
+
+end

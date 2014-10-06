@@ -6,6 +6,7 @@ end_ip=""
 gateway_ip=""
 data_folder="/srv/cloud-control"
 mysql_password="cloudcontrol"
+first_image_source="https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-disk1.img"
 
 if [ -z "$backend" ]; then echo -e "Please set a backend type for the VMs' data\n\n  Choose between: file, mysql OR postgres" && exit 1; fi
 if [ -z "$start_ip" ] || [ -z "$end_ip" ]; then echo -e "Please set an IP Range!\n" && exit 1; fi
@@ -15,12 +16,12 @@ if [ -z "$gateway_ip" ]; then echo -e "Please set a gateway IP!\n" && exit 1; fi
 
 echo "System requirements"
 sudo apt-get update
-sudo apt-get -y install build-essential ruby1.9 qemu-utils cloud-utils
+sudo apt-get -y install build-essential ruby1.9 qemu-utils cloud-utils kvm ubuntu-vm-builder libvirt-bin
 echo "Installing: bundler"
 sudo gem install bundler --no-ri --no-rdoc
 bundle install
 echo "Creating kvm_guests and sources folders"
-sudo mkdir -p $data_folder/{kvm_guests,lib,templates,sources/{iso,cloud_images}}
+sudo mkdir -p $data_folder/{kvm_guests,lib,templates,lists,sources/{iso,cloud_images}}
 sudo chown -R rundeck. $data_folder
 sudo cp lib/* $data_folder/lib
 echo "Add rundeck user to libvirtd and kvm groups"
@@ -28,6 +29,7 @@ sudo adduser rundeck libvirtd && sudo adduser rundeck kvm
 echo "Restart libvirtd..."
 sudo service libvirt-bin restart
 echo "Restart Rundeck...."
+sudo sed -i s,"/var/lib/rundeck:/bin/false","/var/lib/rundeck:/bin/bash",g /etc/passwd
 sudo service rundeckd restart
 echo "Giving 20 seconds to Rundeck to fully restart, hang tight..."
 sleep 20
@@ -58,7 +60,7 @@ fi
 ruby=`which ruby`
 sudo $ruby generate_scripts.rb $backend $start_ip $end_ip $gateway_ip $data_folder $mysql_password
 
-sudo $ruby $data_folder/get_images.rb https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-disk1.img
+sudo $ruby $data_folder/get_images.rb $first_image_source
 
 rundeck_url=`sudo cat /etc/rundeck/framework.properties |grep framework.server.url |awk '{print $3}'`
 echo -e "\n#############"

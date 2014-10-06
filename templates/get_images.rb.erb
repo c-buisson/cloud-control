@@ -2,6 +2,7 @@
 
 guest=""
 eval File.read("<%= data_folder %>/ENV")
+require_relative "#{LIB}/lists.rb"
 
 if ARGV[0].nil?
   puts "This script will download and place any ISO or Cloud Image to the correct location"
@@ -11,19 +12,23 @@ if ARGV[0].nil?
   exit 1
 end
 
-path=ARGV[0]
+url=ARGV[0]
 filename = ARGV[0].split(/\?/).first.split(/\//).last
 
-if path.end_with? "iso"
+if url.end_with? "img"
+  type="cloud_image"
   puts "\nDownloading #{filename}...\n"
-  system("wget #{path} -P #{ISO}") or raise "Error while downloading that ISO. Wrong URL maybe?"
-elsif path.end_with? "img"
+  system("wget #{url} -P #{CLOUD_IMAGES}") or raise "Error while downloading that Cloud Image. Wrong URL maybe?"
+elsif url.end_with? "iso"
+  type="iso"
   puts "\nDownloading #{filename}...\n"
-  system("wget #{path} -P #{CLOUD_IMAGES}") or raise "Error while downloading that Cloud Image. Wrong URL maybe?"
+  system("wget #{url} -P #{ISO}") or raise "Error while downloading that ISO. Wrong URL maybe?"
 else
   puts "\nDoesn't support this type of source"
   puts "Must be ISO or Cloud Image\n"
-exit 1
+  exit 1
 end
 
-puts "Download completed!\n"
+  add_to_list "source", filename, type
+  system("chown rundeck. <%= data_folder %>/lists/source_list.json")
+  puts "Download completed!".cyan

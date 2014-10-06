@@ -1,6 +1,18 @@
 CHANGELOG
 =========
 
+1.3: 2014-10-05
+---------------
+New feature:
+- "source" dropdown is now generated automatically.
+- 2 new jobs: "Add source file" and "Delete source file".
+
+Updates:
+- Renamed "setup" script to "install".
+- KVM packages are now part of the install script.
+- "get_images.rb" will add the source file to "source_list.json".
+- ISO based guests will be added to the databases.
+
 1.2: 2014-10-03
 ---------------
 New feature:

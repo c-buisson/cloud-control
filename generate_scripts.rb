@@ -16,7 +16,7 @@ File.open("#{data_folder}/ENV", "w") do |file|
 end
 
 #Generate lib files
-lib_files = ["generate_static_ip", "vm_list"]
+lib_files = ["generate_static_ip", "lists"]
 lib_files.each do |file|
   template = ERB.new(File.read("templates/#{file}.erb"))
   xml_content = template.result(binding)

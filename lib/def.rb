@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/bin/ruby
 
 def generate_value (value_name, search, separator, array_name)
 array_name=[]

@@ -20,9 +20,8 @@ system("virsh define #{GUEST}/#{guest}.xml") or raise "Couldn't define that inst
 puts "Check if #{guest} is running in virsh:"
 system("virsh list --all |grep #{guest}")
 
-puts ""
 vnc=`grep vnc #{GUEST}/#{guest}.xml |awk '{print $3}' |cut -d '=' -f2 |cut -d "'" -f2`
-puts "You can VNC to that server at: " + "0.0.0.0:#{vnc}".bold]]></script>
+puts "\nYou can VNC to that server at: " + "0.0.0.0:#{vnc}".bold]]></script>
       </command>
     </sequence>
     <description>Will use the guest's xml and start the vm with VIRSH.</description>
@@ -40,6 +39,11 @@ puts "You can VNC to that server at: " + "0.0.0.0:#{vnc}".bold]]></script>
     <loglevel>INFO</loglevel>
     <sequence keepgoing="false" strategy="node-first">
       <command>
+        <errorhandler>
+          <jobref name='Delete guest' nodeStep='true'>
+            <arg line='-name ${option.name}' />
+          </jobref>
+        </errorhandler>
         <scriptargs/>
         <script><![CDATA[#!/usr/bin/ruby
 
@@ -92,6 +96,17 @@ end
 if ENV['RD_OPTION_SOURCE'].end_with? "iso"
   puts "Generating XML file for an ISO".cyan.bold
   type="iso"
+  ip="DHCP"
+<% if backend == "mysql" %>
+  require_relative "#{LIB}/mysql_backend.rb"
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE']
+  require_relative "#{LIB}/lists.rb"
+  add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
+  require_relative "#{LIB}/postgres_backend.rb"
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE']
+  require_relative "#{LIB}/lists.rb"
+  add_to_list "vm", guest, ip<% end %>
+
 elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
   puts "Generating XML file for a Cloud Image".cyan.bold
   type="cloud"
@@ -102,12 +117,12 @@ elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
   ip = generate_ip ENV['RD_OPTION_NAME'], ENV['RD_OPTION_NETWORK_TYPE']<% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
   add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE']
-  require_relative "#{LIB}/vm_list.rb"
-  add_guest_to_vm_list guest, ip<% elsif backend == "postgres" %>
+  require_relative "#{LIB}/lists.rb"
+  add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
   add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE']
-  require_relative "#{LIB}/vm_list.rb"
-  add_guest_to_vm_list guest, ip<% end %>
+  require_relative "#{LIB}/lists.rb"
+  add_to_list "vm", guest, ip<% end %>
 
   #generating user-data file to setup the guest hostname
   system("cloud-localds -H #{ENV['RD_OPTION_NAME']} #{USER_DATA}/user-data-#{ENV['RD_OPTION_NAME']}.img #{USER_DATA}/#{ENV['RD_OPTION_NAME']}-user-data.erb") or raise "Couldn't generate User Date image!".red
@@ -161,7 +176,7 @@ puts "New XML file created at: " + XML.underline]]></script>
         <option name="ram" value="256" values="1024,2048,256,512">
           <description>in Mb</description>
         </option>
-        <option name="source" value="trusty-server-cloudimg-amd64-disk1.img" values="ubuntu-14.04.1-server-amd64.iso,trusty-server-cloudimg-amd64-disk1.img">
+        <option name='source' valuesUrl='file:<%= data_folder %>/lists/source_list.json' required='true'>
           <description>Cloud Image or ISO</description>
         </option>
       </options>
@@ -173,6 +188,11 @@ puts "New XML file created at: " + XML.underline]]></script>
     <loglevel>INFO</loglevel>
     <sequence keepgoing="false" strategy="node-first">
       <command>
+        <errorhandler>
+          <jobref name='Delete guest' nodeStep='true'>
+            <arg line='-name ${option.name}' />
+          </jobref>
+        </errorhandler>
         <scriptargs/>
         <script><![CDATA[#!/usr/bin/ruby
 
@@ -199,8 +219,7 @@ elsif source.end_with? "img"
   system("qemu-img resize #{KVM_GUEST_IMAGE}/#{guest}.img +`expr #{size} - 2`G") or raise "Couldn't resize #{KVM_GUEST_IMAGE}/#{guest}.img to #{size}".red
 end
 
-puts ""
-puts "New image info\n".underline
+puts "\nNew image info:".underline
 system("qemu-img info #{KVM_GUEST_IMAGE}/#{guest}.img")
 puts ""]]></script>
       </command>
@@ -216,7 +235,7 @@ puts ""]]></script>
         <option name="size" required="true">
           <description>Disk space in Gb</description>
         </option>
-        <option name="source" value="trusty-server-cloudimg-amd64-disk1.img" values="trusty-server-cloudimg-amd64-disk1.img,ubuntu-14.04.1-server-amd64.iso">
+        <option name='source' valuesUrl='file:<%= data_folder %>/lists/source_list.json' required='true'>
           <description>Cloud Image or ISO</description>
         </option>
       </options>
@@ -237,12 +256,10 @@ eval File.read("<%= data_folder %>/ENV")
 puts "Check is instance is running..."
 system("virsh list --all |grep #{guest}")
 
-puts ""
-puts "virsh destroy #{guest.red.bold}"
+puts "\nvirsh destroy #{guest.red.bold}"
 system("virsh destroy #{guest}")
 
-puts""
-puts "virsh undefine #{guest.red.bold}"
+puts "\nvirsh undefine #{guest.red.bold}"
 system("virsh undefine #{guest}")
 
 if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "file" %>
@@ -255,16 +272,26 @@ if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "file" %>
   require_relative "#{LIB}/mysql_backend.rb"
   ip = guest_ip guest
   remove_guest guest
-  require_relative "#{LIB}/vm_list.rb"
-  delete_guest_from_vm_list guest, ip<% elsif backend == "postgres" %>
+  require_relative "#{LIB}/lists.rb"
+  delete_from_list "vm", guest, ip<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
   ip = guest_ip guest
   remove_guest guest
-  require_relative "#{LIB}/vm_list.rb"
-  delete_guest_from_vm_list guest, ip<% end %>
+  require_relative "#{LIB}/lists.rb"
+  delete_from_list "vm", guest, ip<% end %>
   puts "#{guest}'s IP address (" + ip.chomp.bold + ") was released"
 else
-  puts "No user-data for that guest, no static IP to release\n"
+  puts "No user-data for that guest, no static IP to release\n"<% if backend == "mysql" %>
+  require_relative "#{LIB}/mysql_backend.rb"
+  ip = "DHCP"
+  remove_guest guest
+  require_relative "#{LIB}/lists.rb"
+  delete_from_list "vm", guest, ip<% elsif backend == "postgres" %>
+  require_relative "#{LIB}/postgres_backend.rb"
+  ip = "DHCP"
+  remove_guest guest
+  require_relative "#{LIB}/lists.rb"
+  delete_from_list "vm", guest, ip<% end %>
 end
 
 puts "removing folder: " + "#{GUEST}/\n".red
@@ -279,7 +306,7 @@ puts "Carry on..."]]></script>
     <context>
       <project>20</project>
       <options>
-        <option name="name" valuesUrl='file:<%= data_folder %>/vm_list.json' required="true">
+        <% if backend == "file" %><option name="name" required="true"><% else %><option name="name" valuesUrl='file:<%= data_folder %>/lists/vm_list.json' required="true"><% end %>
           <description>Guest's name</description>
         </option>
       </options>
@@ -292,7 +319,7 @@ puts "Carry on..."]]></script>
     <sequence keepgoing="false" strategy="node-first">
       <command>
         <jobref name="1.Create image disk">
-          <arg line="-name ${option.name} -size ${option.size} -type ${option.source}"/>
+          <arg line="-name ${option.name} -size ${option.size} -source ${option.source}"/>
         </jobref>
       </command>
       <command>
@@ -326,11 +353,99 @@ puts "Carry on..."]]></script>
         <option name="size" required="true">
           <description>Disk space in Gb</description>
         </option>
-        <option name="source" value="trusty-server-cloudimg-amd64-disk1.img" values="ubuntu-14.04.1-server-amd64.iso,trusty-server-cloudimg-amd64-disk1.img">
+        <option name='source' valuesUrl='file:<%= data_folder %>/lists/source_list.json' required='true'>
           <description>Cloud image or ISO</description>
         </option>
       </options>
     </context>
     <uuid>89f2efe8-2091-430a-88a6-07a992c77862</uuid>
+  </job>
+  <job>
+    <id>50fefa5d-7344-40b3-93d2-07e8ec34e56d</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <scriptargs />
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=""
+eval File.read("/srv/cloud-control/ENV")
+require_relative "#{LIB}/lists.rb"
+
+file=ENV['RD_OPTION_FILE']
+
+if file.end_with? "img"
+  type="cloud_image"
+  system("rm #{CLOUD_IMAGES}/#{file}") or raise "Error while deleting that Cloud Image from disk."
+elsif file.end_with? "iso"
+  type="iso"
+  system("rm #{ISO}/#{file}") or raise "Error while deleting that ISO from disk."
+else
+  puts "\nDoesn't support this type of source"
+  puts "Must be ISO or Cloud Image\n"
+  exit 1
+end
+
+  delete_from_list "source", file, type
+  puts "Source: #{file} deleted!".cyan]]></script>
+      </command>
+    </sequence>
+    <description>Deleting a source file. Ubuntu Cloud Image or ISO.</description>
+    <name>Delete source file</name>
+    <context>
+      <project>cloud-control</project>
+      <options>
+        <option name='File' valuesUrl='file:<%= data_folder %>/lists/source_list.json'>
+          <description>Pick a file</description>
+        </option>
+      </options>
+    </context>
+    <uuid>50fefa5d-7344-40b3-93d2-07e8ec34e56d</uuid>
+  </job>
+  <job>
+    <id>738919ad-06cb-4cb2-83dd-ec7117f7358e</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <scriptargs />
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=""
+eval File.read("/srv/cloud-control/ENV")
+require_relative "#{LIB}/lists.rb"
+
+url=ENV['RD_OPTION_URL']
+action=ENV['RD_OPTION_ACTION']
+filename = url.split(/\?/).first.split(/\//).last
+
+if url.end_with? "img"
+  type="cloud_image"
+  puts "\nDownloading #{filename}...\n"
+  system("wget #{url} -P #{CLOUD_IMAGES}") or raise "Error while downloading that Cloud Image. Wrong URL maybe?"
+elsif url.end_with? "iso"
+  type="iso"
+  puts "\nDownloading #{filename}...\n"
+  system("wget #{url} -P #{ISO}") or raise "Error while downloading that ISO. Wrong URL maybe?"
+else
+  puts "\nDoesn't support this type of source"
+  puts "Must be ISO or Cloud Image\n"
+  exit 1
+end
+
+  add_to_list "source", filename, type
+  puts "Download completed!".cyan]]></script>
+      </command>
+    </sequence>
+    <description>Adding a new source file. Ubuntu Cloud Image or ISO.</description>
+    <name>Add source file</name>
+    <context>
+      <project>cloud-control</project>
+      <options>
+        <option name='URL' required='true'>
+          <description>Cloud Image or ISO</description>
+        </option>
+      </options>
+    </context>
+    <uuid>738919ad-06cb-4cb2-83dd-ec7117f7358e</uuid>
   </job>
 </joblist>
