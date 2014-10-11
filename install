@@ -16,7 +16,7 @@ if [ -z "$gateway_ip" ]; then echo -e "Please set a gateway IP!\n" && exit 1; fi
 
 echo "System requirements"
 sudo apt-get update
-sudo apt-get -y install build-essential ruby1.9 qemu-utils cloud-utils kvm ubuntu-vm-builder libvirt-bin
+sudo apt-get -y install build-essential ruby1.9 qemu-utils cloud-utils kvm libvirt-bin
 echo "Installing: bundler"
 sudo gem install bundler --no-ri --no-rdoc
 bundle install

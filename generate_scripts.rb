@@ -38,16 +38,18 @@ end
 system("sudo su rundeck -c 'rd-project -p cloud-control -a create'")
 system("sudo su rundeck -c 'rd-jobs load -r -f #{data_folder}/rundeck_jobs.xml -p cloud-control'")
 
-#Generate user-data template file
-var = "<%= ip %>"
-template = ERB.new(File.read("templates/TEMPLATE-user-data.erb"))
-xml_content = template.result(binding)
-File.open("#{data_folder}/templates/TEMPLATE-user-data.erb", "w") do |file|
-  file.puts xml_content
+#Generate user-data template files
+user_data_templates=["TEMPLATE-user-data", "TEMPLATE-user-data-nat"].each do |ud|
+  ssh_key = File.read("templates/ssh_key").chomp
+  var = "<%= ip %>"
+  template = ERB.new(File.read("templates/#{ud}.erb"))
+  xml_content = template.result(binding)
+  File.open("#{data_folder}/templates/#{ud}.erb", "w") do |file|
+    file.puts xml_content
+  end
 end
 
 system("sudo cp templates/TEMPLATE.xml.erb #{data_folder}/templates/")
-system("sudo cp templates/TEMPLATE-user-data-nat.erb #{data_folder}/templates/")
 system("sudo chown -R rundeck. #{data_folder}")
 
 puts "\nAll the scripts were generated!\n Cloud-Control folder location: #{data_folder}\n Backend: #{backend}\n Ip Range: #{start_ip} to #{end_ip}"

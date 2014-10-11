@@ -6,7 +6,7 @@ package_update: true
 packages:
  - htop
 ssh_authorized_keys:
-  - YOUR PUBLIC KEY HERE
+  - <%= ssh_key %>
 write_files:
 -   content: |
         # The loopback network interface

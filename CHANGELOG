@@ -1,9 +1,15 @@
 CHANGELOG
 =========
 
+1.4: 2014-10-11
+---------------
+Updates:
+- Editing "templates/ssh_key" file will add that public key to both user-data template files.
+- Remove unneeded ubuntu-vm-builder package.
+
 1.3: 2014-10-05
 ---------------
-New feature:
+New features:
 - "source" dropdown is now generated automatically.
 - 2 new jobs: "Add source file" and "Delete source file".
 

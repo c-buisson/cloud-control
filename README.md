@@ -33,7 +33,7 @@ Environment
 
 Cloud-Control has been developed for **Ubuntu Trusty 14.04 LTS**.
 
->Floating IPs:
+**Floating IPs**:
 
 You will need to edit the `install` file and add:
 
@@ -44,7 +44,7 @@ You will need to edit the `install` file and add:
 
 Cloud-Control will assign floating IPs to the KVM guests. Those floating IPs should be able to reach the hypervisor's IP and the gateway. You need to specify a floating IP range for the guests and a gateway to route out.
 
->NAT IPs:
+**NAT IPs**:
 
 By default Libvirt will install a new interface `virbr0` that will be managed by a DNSmasq process. DNSmasq will assign IPs to the new KVM guest with DHCP. The default range is:
 
@@ -57,7 +57,7 @@ Deleting the KVM guest will release both the IP (floating or NAT) and the VNC po
 Templates
 ---------
 
- - **ssh-key**: You can add your public key to TEMPLATE-user-data{-nat}.erb  and in the templates directory.
+ - **ssh-key**: You can add your public key to *templates/ssh_key*.
  - **netmask**: Cloud-Control is setup to work on with Class C IPs, therefore the netmask is hard coded to: 255.255.255.0
 
 When an Ubuntu Cloud image is used to launch a new instance, the vm will get a static IP.

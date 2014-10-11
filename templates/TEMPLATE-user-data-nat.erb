@@ -6,7 +6,7 @@ package_update: true
 packages:
  - htop
 ssh_authorized_keys:
-  - YOUR PUBLIC KEY HERE
+  - <%= ssh_key %>
 write_files:
 -   content: |
         # The loopback network interface
@@ -16,7 +16,7 @@ write_files:
         # The primary network interface
         auto eth0
         iface eth0 inet static
-        address <%= ip %>
+        address <%= var %>
         netmask 255.255.255.0
         gateway 192.168.122.1
     path: /home/ubuntu/static_ip
