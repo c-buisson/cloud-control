@@ -1,6 +1,31 @@
 CHANGELOG
 =========
 
+2.0: 2014-11
+---------------
+Cloud-Control becomes Mission_Control!
+
+New Features:
+- New install menu.
+- Rundeck can now be installed by Misson_Control.
+- Docker support. (docker-control project)
+- A chef-server container can now be installed. Accessible via HTTPS/4443.
+- All the variables can be edited in the "vars" file.
+
+Updates:
+- The Rundeck project "cloud-control" got renamed to "kvm-control".
+- Added new DB field "chef_installed".
+- Ditched "file" backend.
+- Floating ips for KVM guests can now be added separately.
+- Every projects will be separated from each other in #{data_folder}.
+- Smarter way to detect if Rundeck is running or not while installing Mission_Control.
+- All gems will be install with `bundle install`.
+- MySQL database name can now be changed via a variable.
+- The KVM table name can now be changed via a variable.
+- Installer won't download the same source image several times if previously downloaded.
+- The ssh_keys variable can now be edited in the "vars" file.
+- The userdata templates can now be generated with more than one ssh-key.
+
 1.4: 2014-10-11
 ---------------
 Updates:
@@ -45,19 +70,18 @@ New feature:
 - Upload "ready to use" Rundeck Jobs automatically.
 
 Updates:
-- Ditched RVM, using ruby package instead.
-- Rename "rundeck_scripts" directory to "lib".
+- Ditched RVM, using ruby1.9 package instead.
+- Renamed "rundeck_scripts" directory to "lib".
 - The setup script will now create /srv/cloud-control and generate/copy all the files and directories needed.
-- Moved all the Ruby script to actual Rundeck Jobs.
+- Moved all the Ruby scripts to actual Rundeck Jobs.
 - Added "data_folder" variable to the setup script.
 - Removed unneeded HOME variable from ENV file.
 - Removed unneeded curb gem from Gemfile.
-- get_images.rb is now using the curb gem instead of a wget system call.
 - RUNDECK_SCRIPTS variable got renamed to LIB.
 - Generate Rundeck Jobs XMLs based on user environment.
 - build-essential added to packages list.
-- Add rundeck user to libvirts and kvm Unix groups.
-- The setup script will now fetch the current Trusty 14.04 LTS version from: https://cloud-images.ubuntu.com
+- Installer will add the rundeck user to libvirtd and kvm Unix groups.
+- The install script will now wget the current cloud-image of Ubuntu Trusty 14.04 LTS from: https://cloud-images.ubuntu.com
 - Added .gitignore file.
 - Added CHANGELOG file.
 
@@ -68,7 +92,7 @@ New features:
 - New vnc_port field added to backend DBs.
 
 Updates:
-- bzr package no needed anymore.
+- bzr package not needed anymore.
 - cloud-utils package added.
 - Removed CLOUD_UTILS variable.
 - source.include? "origin" to "img".

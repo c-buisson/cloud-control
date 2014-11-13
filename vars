@@ -1,0 +1,40 @@
+######
+#Vars#
+######
+
+#________________
+#Global variables
+#----------------
+DATA_FOLDER="/srv/mission_control"
+KVM_FOLDER=DATA_FOLDER + "/kvm-control"
+DOCKER_FOLDER=DATA_FOLDER + "/docker-control"
+RUNDECK_VERSION="2.3.1-1"
+DATABASE_NAME="mission_control"
+MYSQL_PASSWORD="mcpasswd"
+DB_KVM_TABLE="kvm_guests"
+# Is this server in a public cloud or a local server? (i.e Is this server reachable directly from the Internet? AWS/GoogleCloud/Rackspace)
+# yes OR no
+CLOUD_SERVER=""
+# Which interface will be used to reach Rundeck?
+# NOTE: must be br0 is you are going to assign static Floating IPs to KVM guests!
+INTERFACE_OUT="eth0"
+
+#_____________
+#KVM variables
+#-------------
+# Backend: mysql OR postgres
+BACKEND="mysql"
+FIRST_IMAGE_SOURCE="https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-disk1.img"
+SSH_KEYS=["PASTE YOUR SSH PUBLIC KEYS HERE", "ADD THE SECOND ONE HERE", "AND SO ON..."]
+
+#=> FLOATING IP <=
+# Disregard if you are just going to launch NAT'ed KVM guests.
+# Floating IP range (e.i 192.168.0.1 to 192.168.0.254)
+START_IP=""
+END_IP=""
+GATEWAY_IP=""
+
+#_______________
+#Docker variable
+#---------------
+CHEF_SERVER_CONTAINER_NAME="chef-server"

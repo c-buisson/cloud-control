@@ -1,0 +1,86 @@
+<joblist>
+  <job>
+    <id>1804c8af-d5b1-42d8-be98-6107e8c1506d</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <exec>docker rmi $(docker images -q)</exec>
+      </command>
+    </sequence>
+    <description>Delete all Docker images.</description>
+    <name>Delete all images</name>
+    <context>
+      <project>docker-control</project>
+    </context>
+    <uuid>1804c8af-d5b1-42d8-be98-6107e8c1506d</uuid>
+  </job>
+  <job>
+    <id>862b23c4-b269-49d7-b47b-784102a83997</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <exec>docker rm -f $(docker ps -q)</exec>
+      </command>
+    </sequence>
+    <description>Delete all stopped containers!</description>
+    <name>Delete all non-running containers</name>
+    <context>
+      <project>docker-control</project>
+    </context>
+    <uuid>862b23c4-b269-49d7-b47b-784102a83997</uuid>
+  </job>
+  <job>
+    <id>cd820882-15bf-4f30-b7b3-ec4e60dd548a</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <scriptargs />
+        <script><![CDATA[#!/bin/bash
+
+docker ps -a]]></script>
+      </command>
+    </sequence>
+    <description>List them all!</description>
+    <name>List all containers</name>
+    <context>
+      <project>docker-control</project>
+    </context>
+    <uuid>cd820882-15bf-4f30-b7b3-ec4e60dd548a</uuid>
+  </job>
+  <job>
+    <id>bbf54c33-fc96-48eb-a61e-f887917e6abe</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <scriptargs />
+        <script><![CDATA[#!/bin/bash
+
+docker ps]]></script>
+      </command>
+    </sequence>
+    <description>List only the running containers</description>
+    <name>List all running containers</name>
+    <context>
+      <project>docker-control</project>
+    </context>
+    <uuid>bbf54c33-fc96-48eb-a61e-f887917e6abe</uuid>
+  </job>
+  <job>
+    <id>0ad015fb-9883-4f11-850e-effd25517d37</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <scriptargs />
+        <script><![CDATA[#!/bin/bash
+
+docker images]]></script>
+      </command>
+    </sequence>
+    <description>List all local images</description>
+    <name>List all images</name>
+    <context>
+      <project>docker-control</project>
+    </context>
+    <uuid>0ad015fb-9883-4f11-850e-effd25517d37</uuid>
+  </job>
+</joblist>

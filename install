@@ -1,69 +1,14 @@
-#!/bin/bash
-
-backend=""
-start_ip=""
-end_ip=""
-gateway_ip=""
-data_folder="/srv/cloud-control"
-mysql_password="cloudcontrol"
-first_image_source="https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-disk1.img"
-
-if [ -z "$backend" ]; then echo -e "Please set a backend type for the VMs' data\n\n  Choose between: file, mysql OR postgres" && exit 1; fi
-if [ -z "$start_ip" ] || [ -z "$end_ip" ]; then echo -e "Please set an IP Range!\n" && exit 1; fi
-if [ -z "$gateway_ip" ]; then echo -e "Please set a gateway IP!\n" && exit 1; fi
-
-##################
-
-echo "System requirements"
-sudo apt-get update
-sudo apt-get -y install build-essential ruby1.9 qemu-utils cloud-utils kvm libvirt-bin
+#!/bin/bash -e
+echo "Welcome to:"
+echo "-----------"
+echo "         __   __     __            __   __       ___  __   __"
+echo " |\/| | /__\` /__\` | /  \\ |\\ |     /  \` /  \\ |\\ |  |  |__) /  \\ |"
+echo " |  | | .__/ .__/ | \\__/ | \\| ___ \\__, \\__/ | \\|  |  |  \\ \\__/ |___"
+echo -e "\n\nInstallation is progress...\n"
+sudo apt-get -q update
+sudo apt-get -y install build-essential ruby1.9
 echo "Installing: bundler"
 sudo gem install bundler --no-ri --no-rdoc
 bundle install
-echo "Creating kvm_guests and sources folders"
-sudo mkdir -p $data_folder/{kvm_guests,lib,templates,lists,sources/{iso,cloud_images}}
-sudo chown -R rundeck. $data_folder
-sudo cp lib/* $data_folder/lib
-echo "Add rundeck user to libvirtd and kvm groups"
-sudo adduser rundeck libvirtd && sudo adduser rundeck kvm
-echo "Restart libvirtd..."
-sudo service libvirt-bin restart
-echo "Restart Rundeck...."
-sudo sed -i s,"/var/lib/rundeck:/bin/false","/var/lib/rundeck:/bin/bash",g /etc/passwd
-sudo service rundeckd restart
-echo "Giving 20 seconds to Rundeck to fully restart, hang tight..."
-sleep 20
-
-if [[ $backend == "file" ]]; then
-  sudo mkdir $data_folder/interfaces
-  sudo touch $data_folder/interfaces/ip_address_pool.txt
-elif [[ $backend == "mysql" ]]; then
-  echo "mysql-server-5.5 mysql-server/root_password password $mysql_password
-  mysql-server-5.5 mysql-server/root_password seen true
-  mysql-server-5.5 mysql-server/root_password_again password $mysql_password
-  mysql-server-5.5 mysql-server/root_password_again seen true
-  " | sudo debconf-set-selections
-  export DEBIAN_FRONTEND=noninteractive
-  sudo apt-get install -q -y mysql-server mysql-client libmysqlclient-dev
-  sudo gem install mysql2
-elif [[ $backend == "postgres" ]]; then
-  sudo apt-get -y install postgresql libpq-dev
-  sudo gem install pg
-  sudo su - postgres -c "createuser pguser -s"
-  echo -e "local all postgres peer\nlocal all pguser trust\nlocal all all peer\nhost all all 127.0.0.1/32 md5" | sudo tee /etc/postgresql/9.3/main/pg_hba.conf
-  sudo service postgresql restart
-else
-  echo "Backend: ${backend} not supported!"
-  exit 1
-fi
-
 ruby=`which ruby`
-sudo $ruby generate_scripts.rb $backend $start_ip $end_ip $gateway_ip $data_folder $mysql_password
-
-sudo $ruby $data_folder/get_images.rb $first_image_source
-
-rundeck_url=`sudo cat /etc/rundeck/framework.properties |grep framework.server.url |awk '{print $3}'`
-echo -e "\n#############"
-echo "Cloud-Control installation completed!"
-echo "Go to: ${rundeck_url}/project/cloud-control/jobs"
-echo "######"
+sudo $ruby scripts/menu_main.rb

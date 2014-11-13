@@ -5,9 +5,9 @@ require 'json'
 def add_to_list(type, attr, misc)
 
   if type == "vm"
-    list="<%= data_folder %>/lists/vm_list.json"
+    list="<%= kvm_folder %>/lists/vm_list.json"
   elsif type == "source"
-    list="<%= data_folder %>/lists/source_list.json"
+    list="<%= kvm_folder %>/lists/source_list.json"
   else
     puts "Unsupported type!".red
     exit 1
@@ -39,9 +39,9 @@ end
 def delete_from_list(type, attr, misc)
 
   if type == "vm"
-    list="<%= data_folder %>/lists/vm_list.json"
+    list="<%= kvm_folder %>/lists/vm_list.json"
   elsif type == "source"
-    list="<%= data_folder %>/lists/source_list.json"
+    list="<%= kvm_folder %>/lists/source_list.json"
   else
     puts "Unsupported type!".red
     exit 1

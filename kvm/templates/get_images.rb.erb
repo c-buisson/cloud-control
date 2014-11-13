@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 
 guest=""
-eval File.read("<%= data_folder %>/ENV")
+eval File.read("<%= kvm_folder %>/ENV")
 require_relative "#{LIB}/lists.rb"
 
 if ARGV[0].nil?
@@ -30,5 +30,5 @@ else
 end
 
   add_to_list "source", filename, type
-  system("chown rundeck. <%= data_folder %>/lists/source_list.json")
+  system("chown rundeck. <%= kvm_folder %>/lists/source_list.json")
   puts "Download completed!".cyan

@@ -10,7 +10,7 @@
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=ENV['RD_OPTION_NAME']
-eval File.read("<%= data_folder %>/ENV")
+eval File.read("<%= kvm_folder %>/ENV")
 
 puts "Creating guest #{guest}...".cyan.bold
 system("virsh create #{GUEST}/#{guest}.xml") or raise "The KVM instance didn't spawn..."
@@ -48,7 +48,7 @@ puts "\nYou can VNC to that server at: " + "0.0.0.0:#{vnc}".bold]]></script>
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=ENV['RD_OPTION_NAME']
-eval File.read("<%= data_folder %>/ENV")
+eval File.read("<%= kvm_folder %>/ENV")
 
 #Access def.rb library file
 require_relative "#{LIB}/def.rb"
@@ -99,11 +99,11 @@ if ENV['RD_OPTION_SOURCE'].end_with? "iso"
   ip="DHCP"
 <% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE']
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE']
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% end %>
 
@@ -116,11 +116,11 @@ elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
   require_relative "#{LIB}/generate_static_ip.rb"
   ip = generate_ip ENV['RD_OPTION_NAME'], ENV['RD_OPTION_NETWORK_TYPE']<% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE']
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE']
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% end %>
 
@@ -169,14 +169,16 @@ puts "New XML file created at: " + XML.underline]]></script>
         </option>
         <option name="name" required="true">
           <description>Guest's name</description>
-        </option>
+        </option><% if floating == "yes" %>
         <option name='network_type' value='nat' values='floating,nat'>
           <description>NAT or Floating IP?</description>
-        </option>
+        </option><% elsif floating == "no" %><option name='network_type' value='nat' values='nat'>
+          <description>NAT IP</description>
+        </option><% end %>
         <option name="ram" value="256" values="1024,2048,256,512">
           <description>in Mb</description>
         </option>
-        <option name='source' valuesUrl='file:<%= data_folder %>/lists/source_list.json' required='true'>
+        <option name='source' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json' required='true'>
           <description>Cloud Image or ISO</description>
         </option>
       </options>
@@ -197,7 +199,7 @@ puts "New XML file created at: " + XML.underline]]></script>
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=ENV['RD_OPTION_NAME']
-eval File.read("<%= data_folder %>/ENV")
+eval File.read("<%= kvm_folder %>/ENV")
 
 size=ENV['RD_OPTION_SIZE']
 source=ENV['RD_OPTION_SOURCE']
@@ -235,7 +237,7 @@ puts ""]]></script>
         <option name="size" required="true">
           <description>Disk space in Gb</description>
         </option>
-        <option name='source' valuesUrl='file:<%= data_folder %>/lists/source_list.json' required='true'>
+        <option name='source' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json' required='true'>
           <description>Cloud Image or ISO</description>
         </option>
       </options>
@@ -251,7 +253,7 @@ puts ""]]></script>
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=ENV['RD_OPTION_NAME']
-eval File.read("<%= data_folder %>/ENV")
+eval File.read("<%= kvm_folder %>/ENV")
 
 puts "Check is instance is running..."
 system("virsh list --all |grep #{guest}")
@@ -262,13 +264,7 @@ system("virsh destroy #{guest}")
 puts "\nvirsh undefine #{guest.red.bold}"
 system("virsh undefine #{guest}")
 
-if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "file" %>
-  ip=`cat #{USER_DATA}/#{guest}-user-data.erb |grep address |awk '{printf "%s", $2'}`
-  tmp = Tempfile.new("extract")
-  File.open(IP_FILE, 'r').each { |l| tmp << l unless l.chomp == ip }
-  tmp.close
-  FileUtils.mv(tmp.path, IP_FILE)
-  File.chmod(0664, IP_FILE)<% elsif backend == "mysql" %>
+if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
   ip = guest_ip guest
   remove_guest guest
@@ -306,7 +302,7 @@ puts "Carry on..."]]></script>
     <context>
       <project>20</project>
       <options>
-        <% if backend == "file" %><option name="name" required="true"><% else %><option name="name" valuesUrl='file:<%= data_folder %>/lists/vm_list.json' required="true"><% end %>
+        <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
           <description>Guest's name</description>
         </option>
       </options>
@@ -343,17 +339,19 @@ puts "Carry on..."]]></script>
         </option>
         <option name="name" required="true">
           <description>Guest's name</description>
-        </option>
+        </option><% if floating == "yes" %>
         <option name='network_type' value='nat' values='floating,nat'>
           <description>NAT or Floating IP?</description>
-        </option>
+        </option><% elsif floating == "no" %><option name='network_type' value='nat' values='nat'>
+          <description>NAT IP</description>
+        </option><% end %>
         <option name="ram" value="256" values="1024,2048,256,512">
           <description>in Mb</description>
         </option>
         <option name="size" required="true">
           <description>Disk space in Gb</description>
         </option>
-        <option name='source' valuesUrl='file:<%= data_folder %>/lists/source_list.json' required='true'>
+        <option name='source' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json' required='true'>
           <description>Cloud image or ISO</description>
         </option>
       </options>
@@ -369,7 +367,7 @@ puts "Carry on..."]]></script>
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=""
-eval File.read("/srv/cloud-control/ENV")
+eval File.read("<%= kvm_folder %>/ENV")
 require_relative "#{LIB}/lists.rb"
 
 file=ENV['RD_OPTION_FILE']
@@ -393,9 +391,9 @@ end
     <description>Deleting a source file. Ubuntu Cloud Image or ISO.</description>
     <name>Delete source file</name>
     <context>
-      <project>cloud-control</project>
+      <project>kvm-control</project>
       <options>
-        <option name='File' valuesUrl='file:<%= data_folder %>/lists/source_list.json'>
+        <option name='File' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json'>
           <description>Pick a file</description>
         </option>
       </options>
@@ -411,7 +409,7 @@ end
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=""
-eval File.read("/srv/cloud-control/ENV")
+eval File.read("<%= kvm_folder %>/ENV")
 require_relative "#{LIB}/lists.rb"
 
 url=ENV['RD_OPTION_URL']
@@ -439,7 +437,7 @@ end
     <description>Adding a new source file. Ubuntu Cloud Image or ISO.</description>
     <name>Add source file</name>
     <context>
-      <project>cloud-control</project>
+      <project>kvm-control</project>
       <options>
         <option name='URL' required='true'>
           <description>Cloud Image or ISO</description>
