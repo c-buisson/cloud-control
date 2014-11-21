@@ -51,7 +51,7 @@ echo \"#{guest} is ready, you can now SSH in with: ubuntu@$IP\"")]]></script>
     <description>Will use the guest's xml and start the vm with VIRSH.</description>
     <name>3.Create VIRSH guest</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
       <options>
         <option name="name" required="true"/>
       </options>
@@ -123,11 +123,11 @@ if ENV['RD_OPTION_SOURCE'].end_with? "iso"
   ip="DHCP"
 <% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "yes"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "yes"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% end %>
 
@@ -140,11 +140,11 @@ elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
   require_relative "#{LIB}/generate_static_ip.rb"
   ip = generate_ip ENV['RD_OPTION_NAME'], ENV['RD_OPTION_NETWORK_TYPE']<% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "yes"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
+  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "yes"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% end %>
 
@@ -186,7 +186,7 @@ puts "New XML file created at: " + XML.underline]]></script>
     <description>This will generate a guest XML.</description>
     <name>2.Create guest XML</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
       <options>
         <option name="cores" value="1" values="1,2" required="true">
           <description>Number of cores</description>
@@ -253,7 +253,7 @@ puts ""]]></script>
     <description>Create a QEMU file for KVM.</description>
     <name>1.Create image disk</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
       <options>
         <option name="name" required="true">
           <description>Guest's name</description>
@@ -287,6 +287,11 @@ system("virsh destroy #{guest}")
 
 puts "\nvirsh undefine #{guest.red.bold}"
 system("virsh undefine #{guest}")
+
+puts "\nClean up Chef server"
+system("knife client -c /var/lib/rundeck/.chef/knife.rb delete -y #{guest}")
+system("knife node -c /var/lib/rundeck/.chef/knife.rb delete -y #{guest}")
+puts ""
 
 if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
@@ -324,7 +329,7 @@ puts "Carry on..."]]></script>
     <description>Destroy a vm and remove all its files.</description>
     <name>Delete guest</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
       <options>
         <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
           <description>Guest's name</description>
@@ -352,11 +357,16 @@ puts "Carry on..."]]></script>
           <arg line="-name ${option.name}"/>
         </jobref>
       </command>
+      <command>
+        <jobref name="4.Bootstrap guest">
+          <arg line="-name ${option.name}"/>
+        </jobref>
+      </command>
     </sequence>
     <description>Launch a new instance!</description>
     <name>.Launch KVM guest</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
       <options>
         <option name="cores" value="1" values="1,2">
           <description>Number of cores</description>
@@ -415,7 +425,7 @@ end
     <description>Deleting a source file. Ubuntu Cloud Image or ISO.</description>
     <name>Delete source file</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
       <options>
         <option name='File' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json'>
           <description>Pick a file</description>
@@ -461,7 +471,7 @@ end
     <description>Adding a new source file. Ubuntu Cloud Image or ISO.</description>
     <name>Add source file</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
       <options>
         <option name='URL' required='true'>
           <description>Cloud Image or ISO</description>
@@ -487,7 +497,7 @@ echo -e "\n $RD_OPTION_NAME is now running!"]]></script>
     <description>Start a vm.</description>
     <name>Start guest</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
       <options>
         <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
           <description>Guest's name</description>
@@ -513,7 +523,7 @@ echo -e "\n $RD_OPTION_NAME is now shutdown!"]]></script>
     <description>Stop a vm.</description>
     <name>Stop guest</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
       <options>
         <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
           <description>Guest's name</description>
@@ -544,7 +554,7 @@ system("virsh list --all")]]></script>
     <description>Get a list of all the guests' info.</description>
     <name>List ALL guests info</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
     </context>
     <uuid>ad824dcf-169d-46eb-ba90-2eb39646518d</uuid>
   </job>
@@ -571,7 +581,7 @@ system("virsh list --all")
     <description>Starting all the guests.</description>
     <name>Start ALL non-running guests</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
     </context>
     <uuid>3cbeda79-5d8f-4658-be67-a63fa62024e4</uuid>
   </job>
@@ -598,8 +608,41 @@ system("virsh list --all")
     <description>Stopping all the guests.</description>
     <name>Stop ALL guests</name>
     <context>
-      <project>kvm-control</project>
+      <project>kvm-control_with-Chef</project>
     </context>
     <uuid>3b2eb65d-00ef-47e6-bb93-64fbc6975768</uuid>
+  </job>
+  <job>
+    <id>eb6f541a-46ee-4a38-91e7-35e67ca8984e</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <scriptargs />
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=ENV['RD_OPTION_NAME']
+eval File.read("<%= kvm_folder %>/ENV")
+
+require_relative "#{LIB}/mysql_backend.rb"
+ip = guest_ip ENV['RD_OPTION_NAME']
+
+puts "Sleeping 10 seconds for the guest to fully start."
+sleep 10
+system("knife bootstrap -c /var/lib/rundeck/.chef/knife.rb #{ip} --ssh-user ubuntu -i /var/lib/rundeck/.ssh/id_rsa --no-host-key-verify --node-name #{ENV['RD_OPTION_NAME']} --sudo") or raise "Couldn't bootstrap #{ENV['RD_OPTION_NAME']}...".red
+
+puts "\n#{ENV['RD_OPTION_NAME']} is now bootstrapped to the Chef server!".cyan]]></script>
+      </command>
+    </sequence>
+    <description>Bootstrap a guest to the Docker Chef server.</description>
+    <name>4.Bootstrap guest</name>
+    <context>
+      <project>kvm-control_with-Chef</project>
+      <options>
+        <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
+          <description>Guest's name</description>
+        </option>
+      </options>
+    </context>
+    <uuid>eb6f541a-46ee-4a38-91e7-35e67ca8984e</uuid>
   </job>
 </joblist>

@@ -12,7 +12,7 @@ RUNDECK_VERSION="2.3.1-1"
 DATABASE_NAME="mission_control"
 MYSQL_PASSWORD="mcpasswd"
 DB_KVM_TABLE="kvm_guests"
-# Is this server in a public cloud or a local server? (i.e Is this server reachable directly from the Internet? AWS/GoogleCloud/Rackspace)
+# Is this server running in a public cloud? (i.e Is this server reachable directly from the Internet? AWS/GoogleCloud/Rackspace)
 # yes OR no
 CLOUD_SERVER=""
 # Which interface will be used to reach Rundeck?

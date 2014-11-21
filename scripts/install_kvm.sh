@@ -5,8 +5,11 @@ sudo mkdir -p $1/{kvm_guests,lib,templates,lists,sources/{iso,cloud_images}}
 sudo cp kvm/lib/* $1/lib
 echo "Add rundeck user to libvirtd and kvm groups"
 sudo adduser rundeck libvirtd && sudo adduser rundeck kvm
-echo "Restart libvirtd..."
-sudo service libvirt-bin restart
+kvm_guests=`sudo virsh list`
+if [[ -z "$kvm_guests" ]]; then
+  echo "Restart libvirtd..."
+  sudo service libvirt-bin restart
+fi
 
 if [[ $2 == "mysql" ]]; then
   echo "mysql-server-5.5 mysql-server/root_password password $3

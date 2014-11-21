@@ -18,11 +18,10 @@ class Application
     case gets.strip
       when "1"
         puts "Installing Rundeck...".bold
-        vars= {"cloud_server" => CLOUD_SERVER,
-               "interface_out" => INTERFACE_OUT,
-               "rundeck_version" => RUNDECK_VERSION}
+        vars= {"rundeck_version" => RUNDECK_VERSION}
         vars=check_vars(vars)
-        system("sudo scripts/install_rundeck.sh #{CLOUD_SERVER} #{INTERFACE_OUT} #{RUNDECK_VERSION}")
+        get_ip_host
+        system("sudo scripts/install_rundeck.sh #{IP_HOST} #{RUNDECK_VERSION}")
       when "2"
         puts "Moving on..."
       else
@@ -44,7 +43,7 @@ class Application
     puts "  1: KVM - Nat only\n  2: KVM - Nat + Floating IPs\n  3: Docker\n  4: Exit...".green
     case gets.strip
       when "1"
-        files=["generate_scripts.rb", "setup_db.rb", "get_first_cloud_image.rb"]
+        files=["generate_scripts.rb", "chef_generate_scripts.rb", "setup_db.rb", "get_first_cloud_image.rb"]
         files.each do |file|
           require_relative "../kvm/#{file}"
         end
@@ -58,13 +57,17 @@ class Application
         vars=check_vars(vars)
         self.class.const_set(:FLOATING, "no")
         system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BACKEND} #{MYSQL_PASSWORD}")
-        generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, SSH_KEYS, FLOATING
+        get_rundeck_key
+        generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, SSH_KEYS, FLOATING, RUNDECK_KEY
         setup_kvm_db BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD
         get_first_cloud_image KVM_FOLDER, FIRST_IMAGE_SOURCE
         chef_menu
+        if INSTALL_CHEF == "yes"
+          chef_generate_scripts BACKEND, KVM_FOLDER, FLOATING
+        end
         system("sudo chown -R rundeck. #{KVM_FOLDER}")
       when "2"
-        files=["generate_scripts-floating.rb", "setup_db.rb", "get_first_cloud_image.rb"]
+        files=["generate_scripts-floating.rb", "chef_generate_scripts-floating.rb", "setup_db.rb", "get_first_cloud_image.rb"]
         files.each do |file|
           require_relative "../kvm/#{file}"
         end
@@ -81,10 +84,14 @@ class Application
         vars=check_vars(vars)
         self.class.const_set(:FLOATING, "yes")
         system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BACKEND} #{MYSQL_PASSWORD}")
-        generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, START_IP, END_IP, GATEWAY_IP, SSH_KEYS, FLOATING
+        get_rundeck_key
+        generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, START_IP, END_IP, GATEWAY_IP, SSH_KEYS, FLOATING, RUNDECK_KEY
         setup_kvm_db BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD
         get_first_cloud_image KVM_FOLDER, FIRST_IMAGE_SOURCE
         chef_menu
+        if INSTALL_CHEF == "yes"
+          chef_generate_scripts BACKEND, KVM_FOLDER, FLOATING
+        end
         system("sudo chown -R rundeck. #{KVM_FOLDER}")
       when "3"
         puts "Installing Docker and generating Rundeck jobs...".bold
@@ -101,6 +108,17 @@ class Application
     install_done
   end
 
+  def get_ip_host
+    require 'ipaddress'
+    ip_host=`sudo scripts/get_interface_ip.rb #{CLOUD_SERVER} #{INTERFACE_OUT}`.chomp
+    if IPAddress.valid? ip_host
+      self.class.const_set(:IP_HOST, ip_host)
+    else
+      puts "Host IP is not valid or nil!\nStopping now...".red
+      exit 1
+    end
+  end
+
   def bundle_install(gem)
     require 'erb'
     template = ERB.new(File.read("scripts/templates/Gemfile.erb"))
@@ -115,13 +133,18 @@ class Application
     vars=[]
     variables.each do |name, var|
       if var.empty?
-        puts "#{name.upcase} is empty!".red + " Please a value:"
+        puts "#{name.upcase} is empty!".red + " Please add a value:"
         var=gets.chomp
         new_value=self.class.const_set(name.upcase, "#{var}")
         vars << new_value
       end
     end
     return vars
+  end
+
+  def get_rundeck_key
+    rundeck_key=`sudo cat /var/lib/rundeck/.ssh/id_rsa.pub`.chomp
+    self.class.const_set(:RUNDECK_KEY, rundeck_key)
   end
 
   def install_done

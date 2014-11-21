@@ -1,7 +1,23 @@
 CHANGELOG
 =========
 
-2.0: 2014-11
+2.1: 2014-11-20
+---------------
+New Features:
+- New Rundeck project: kvm-control_with-Chef.
+    => This project will bootstrap the newly created KVM guest to the Docker Chef-server.
+- The chef-rundeck gem will now display all the bootstrapped nodes in Rundeck ('Nodes' tab).
+- 5 new Rundeck jobs for kvm-control. (Start/Stop a guest - List all guests info - Start/Stop all guests)
+
+Updates:
+- knife.rb will use the server IP directly instead of the Docker container ip.
+- The installer will not restart Libvirtd service if guests are currenlty running.
+- The installer will now make sure the HOST_IP is valid.
+
+Fixed:
+- The installer will not fail if INSTALL_CHEF variable is not set.
+
+2.0: 2014-11-12
 ---------------
 Cloud-Control becomes Mission_Control!
 

@@ -43,3 +43,16 @@ def guest_ip(name)
   end
 return ip
 end
+
+def list_all_guests
+  guest=[]
+  begin
+    conn = PG::Connection.open(:dbname => "<%= database_name %>", :user => "pguser")
+    conn.exec_params("SELECT * FROM <%= db_kvm_table %>").each do |row|
+      guest << row
+    end
+  rescue PG::Error => e
+    puts e.error
+  end
+return guest
+end

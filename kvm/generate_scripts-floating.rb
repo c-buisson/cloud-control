@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 require 'erb'
 
-def generate_scripts(backend, database_name, db_kvm_table, mysql_password, kvm_folder, start_ip, end_ip, gateway_ip, ssh_keys, floating)
+def generate_scripts(backend, database_name, db_kvm_table, mysql_password, kvm_folder, start_ip, end_ip, gateway_ip, ssh_keys, floating, rundeck_key)
   dir=File.expand_path(File.dirname(__FILE__))
 
   #Generate ENV file

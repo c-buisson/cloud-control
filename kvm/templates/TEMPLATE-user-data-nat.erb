@@ -6,6 +6,7 @@ package_update: true
 packages:
  - htop
 ssh_authorized_keys:
+  - <%= rundeck_key %>
   - <%= ssh_keys.to_a.join("\n  - ") %>
 write_files:
 -   content: |

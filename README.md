@@ -53,6 +53,8 @@ Deleting the KVM guest will release both the IP (floating or NAT) and the VNC po
 
 This is a Docker container that come with Chef Server 11 already installed. Mission_Control will download and launch this container if you want to. It will also grab the Knife admin keys and configure the Rundeck user to be able to use Knife.
 
+Also, the gem `chef-rundeck` will be installed and configure. This allows Rundeck to display Chef nodes directly in the "Nodes" panel. You can run command directly to the Chef nodes via Rundeck.
+
 #*docker-control*
 
 You can manage Docker containers and images with this project.

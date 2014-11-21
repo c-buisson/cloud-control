@@ -41,27 +41,6 @@ container_id=`docker ps -a |grep <%= CHEF_SERVER_CONTAINER_NAME %> |awk '{print 
 docker start $container_id
 sleep 5
 echo "<%= CHEF_SERVER_CONTAINER_NAME %> container has been started!"
-
-container_ip=`docker inspect $container_id | grep IPAddress | cut -d '"' -f 4`
-full_line="chef_server_url          'https://$container_ip:4443'"
-old_ip=`cat /var/lib/rundeck/.chef/knife.rb |grep https`
-
-if [[ $full_line != $old_ip ]];then
-cat > /var/lib/rundeck/.chef/knife.rb << EOL
-log_level                :info
-log_location             STDOUT
-cache_type               'BasicFile'
-node_name                'admin'
-client_key               '~/.chef/admin.pem'
-validation_client_name   'chef-validator'
-validation_key           '/var/lib/rundeck/.chef/chef-validator.pem'
-chef_server_url          'https://$container_ip:4443'
-EOL
-
-echo -e "Updated rundeck knife.rb with new container IP!\n"
-echo -e "The IP have changed for that container!\nPlease run the command below and update your ~/.chef/knife.rb to macth the current Chef-Server IP!\n"
-echo -e "\e[1;36m sudo mission_control/scripts/update_chef_ip.rb\e[0m"
-fi
 ]]></script>
       </command>
     </sequence>
