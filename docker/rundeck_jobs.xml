@@ -1,10 +1,56 @@
 <joblist>
   <job>
-    <id>1804c8af-d5b1-42d8-be98-6107e8c1506d</id>
+    <id>96a978e4-2e96-4b23-89c0-ff6d1d8ddad6</id>
     <loglevel>INFO</loglevel>
     <sequence keepgoing='false' strategy='node-first'>
       <command>
-        <exec>docker rmi $(docker images -q)</exec>
+        <scriptargs />
+        <script><![CDATA[#!/usr/bin/ruby
+list=`docker ps -a -q`.chomp
+if list.empty?
+  puts "All the containers are already stopped!"
+  exit 0
+else
+  list.split("\n").each do |container|
+    system("docker stop #{container}")
+    sleep 1
+  end
+
+  sleep 5
+  system("docker ps -a")
+  puts "\nAll the Docker containers have been stopped!"
+end]]></script>
+      </command>
+    </sequence>
+    <description>Stop all Docker containers.</description>
+    <name>Stop all containers</name>
+    <context>
+      <project>docker-control</project>
+    </context>
+    <uuid>96a978e4-2e96-4b23-89c0-ff6d1d8ddad6</uuid>
+  </job>
+  <job>
+    <id>f111f4ca-4ba4-4945-be86-bfe5b47a1114</id>
+    <loglevel>INFO</loglevel>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <scriptargs />
+        <script><![CDATA[#!/usr/bin/ruby
+images=`docker images -a -q`.chomp
+if images.empty?
+  puts "No images on that server!"
+  exit 0
+else
+  images.split("\n").each do |image|
+    puts "Deleting: #{image}"
+    system("docker rmi -f #{image}")
+    sleep 1
+  end
+
+  sleep 5
+  system("docker images -a")
+  puts "\nAll the Docker images have been deleted!"
+end]]></script>
       </command>
     </sequence>
     <description>Delete all Docker images.</description>
@@ -12,22 +58,40 @@
     <context>
       <project>docker-control</project>
     </context>
-    <uuid>1804c8af-d5b1-42d8-be98-6107e8c1506d</uuid>
+    <uuid>f111f4ca-4ba4-4945-be86-bfe5b47a1114</uuid>
   </job>
   <job>
-    <id>862b23c4-b269-49d7-b47b-784102a83997</id>
+    <id>416d8f91-f0c2-4603-9a70-1ad91242a51d</id>
     <loglevel>INFO</loglevel>
     <sequence keepgoing='false' strategy='node-first'>
       <command>
-        <exec>docker rm -f $(docker ps -q)</exec>
+        <jobref name='Stop all containers' />
+      </command>
+      <command>
+        <scriptargs />
+        <script><![CDATA[#!/usr/bin/ruby
+list=`docker ps -a -q`.chomp
+if list.empty?
+  puts "There are no containers to delete!"
+  exit 0
+else
+  list.split("\n").each do |container|
+    system("docker rm -f #{container}")
+    sleep 1
+  end
+
+  sleep 5
+  system("docker ps -a")
+ puts "\nAll the Docker containers have been deleted!"
+end]]></script>
       </command>
     </sequence>
-    <description>Delete all stopped containers!</description>
-    <name>Delete all non-running containers</name>
+    <description>Stop and delete all Docker containers!</description>
+    <name>Delete all containers</name>
     <context>
       <project>docker-control</project>
     </context>
-    <uuid>862b23c4-b269-49d7-b47b-784102a83997</uuid>
+    <uuid>416d8f91-f0c2-4603-9a70-1ad91242a51d</uuid>
   </job>
   <job>
     <id>cd820882-15bf-4f30-b7b3-ec4e60dd548a</id>

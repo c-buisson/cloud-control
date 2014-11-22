@@ -14,7 +14,7 @@ def chef_menu
       system("sudo scripts/install_docker.sh #{DOCKER_FOLDER}")
       get_ip_host
       puts "\nDownloading container and start #{CHEF_SERVER_CONTAINER_NAME}".bold
-      system("scripts/install_docker_chef-server.sh #{CHEF_SERVER_CONTAINER_NAME} #{DOCKER_FOLDER} #{Application::IP_HOST}")
+      system("scripts/install_docker_chef-server.sh #{CHEF_SERVER_CONTAINER_NAME} #{CHEF_PORT} #{DOCKER_FOLDER} #{Application::IP_HOST}")
       generate_rundeck_job
       chef_rundeck
       self.class.const_set(:INSTALL_CHEF, "yes")

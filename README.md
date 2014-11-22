@@ -70,7 +70,7 @@ Assumptions
 
 ###chef_server-control:
 
- - The Docker Chef_Server will be accessible via HTTPS:4443
+ - The Docker Chef_Server will be accessible via HTTPS:$CHEF_PORT.
 
 Requirements
 -----------

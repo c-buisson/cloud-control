@@ -5,21 +5,27 @@
     <sequence keepgoing='false' strategy='node-first'>
       <command>
         <scriptargs />
-        <script><![CDATA[#!/bin/bash
+        <script><![CDATA[#!/usr/bin/ruby
 
-image_id=`docker images |grep cbuisson/chef-server |awk '{print $3}'`
-docker rmi -f $image_id
+container_id=`docker ps -a |grep <%= CHEF_SERVER_CONTAINER_NAME %> |awk \'{print $1}\'`.chomp
+if container_id.empty?
+  puts "<%= CHEF_SERVER_CONTAINER_NAME %> is already deleted!"
+  exit 0
+else
+  system("docker stop #{container_id}")
+  sleep 2
+  system("docker rm -f #{container_id}")
+  puts "\n<%= CHEF_SERVER_CONTAINER_NAME %> container has been deleted!"
+end
 
-echo "cbuisson/chef-server image has been deleted!"]]></script>
-      </command>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/bin/bash
-
-container_id=`docker ps -a |grep <%= CHEF_SERVER_CONTAINER_NAME %> |awk '{print $1}'`
-docker rm -f $container_id
-
-echo "<%= CHEF_SERVER_CONTAINER_NAME %> container has been deleted!"]]></script>
+image_id=`docker images |grep cbuisson/chef-server |awk \'{print $3}\'`.chomp
+if image_id.empty?
+  puts "Chef-Server image not found!"
+  exit 0
+else
+  system("docker rmi -f #{image_id}")
+  puts "\nChef-Server image has been deleted!"
+end]]></script>
       </command>
     </sequence>
     <description>Find <%= CHEF_SERVER_CONTAINER_NAME %> image and container ID then delete all the files.</description>

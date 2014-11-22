@@ -38,3 +38,4 @@ GATEWAY_IP=""
 #Docker variable
 #---------------
 CHEF_SERVER_CONTAINER_NAME="chef-server"
+CHEF_PORT="443"

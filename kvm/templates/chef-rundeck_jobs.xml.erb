@@ -149,7 +149,7 @@ elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
   add_to_list "vm", guest, ip<% end %>
 
   #generating user-data file to setup the guest hostname
-  system("cloud-localds -H #{ENV['RD_OPTION_NAME']} #{USER_DATA}/user-data-#{ENV['RD_OPTION_NAME']}.img #{USER_DATA}/#{ENV['RD_OPTION_NAME']}-user-data.erb") or raise "Couldn't generate User Date image!".red
+  system("cloud-localds -H #{ENV['RD_OPTION_NAME']} #{USER_DATA}/user-data-#{ENV['RD_OPTION_NAME']}.img #{USER_DATA}/#{ENV['RD_OPTION_NAME']}-user-data.erb") or raise "Couldn't generate user-data image!".red
   user_data="user-data-#{ENV['RD_OPTION_NAME']}.img"
 else
   puts "Wrong source type! Must be 'iso' or 'cloud'".red

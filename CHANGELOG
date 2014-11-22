@@ -1,6 +1,18 @@
 CHANGELOG
 =========
 
+2.2: 2014-11-21
+---------------
+New Feature:
+- The Chef-server port can now be changed, edit CHEF_PORT in the vars file.
+
+Update:
+- docker-control jobs have been improved.
+- chef-server-control jobs have been improved.
+
+Fixed:
+- Typo in KVM rundeck-jobs templates.
+
 2.1: 2014-11-20
 ---------------
 New Features:
