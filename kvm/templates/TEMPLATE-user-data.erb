@@ -1,5 +1,7 @@
 #cloud-config
-password: ubuntu
+password: changeme
+fqdn: <%= hostname %>.local
+manage_etc_hosts: true
 chpasswd: { expire: False }
 ssh_pwauth: True
 package_update: true
@@ -24,7 +26,8 @@ write_files:
     permissions: '0644'
     owner: root:root
 -   content: |
-        nameserver <%= gateway_ip %>
+        nameserver <%= ip_host %>
+        search local
     path: /home/ubuntu/resolv
     permissions: '0644'
     owner: root:root

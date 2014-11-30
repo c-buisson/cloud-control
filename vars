@@ -27,6 +27,9 @@ BACKEND="mysql"
 FIRST_IMAGE_SOURCE="https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-disk1.img"
 SSH_KEYS=["PASTE YOUR SSH PUBLIC KEYS HERE", "ADD THE SECOND ONE HERE", "AND SO ON..."]
 
+# Install Bind9 to manage KVM guests' DNS entries.
+BIND9="yes"
+
 #=> FLOATING IP <=
 # Disregard if you are just going to launch NAT'ed KVM guests.
 # Floating IP range (e.i 192.168.0.1 to 192.168.0.254)

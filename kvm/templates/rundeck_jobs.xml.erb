@@ -74,25 +74,35 @@ echo \"#{guest} is ready, you can now SSH in with: ubuntu@$IP\"")]]></script>
 guest=ENV['RD_OPTION_NAME']
 eval File.read("<%= kvm_folder %>/ENV")
 
-#Access def.rb library file
-require_relative "#{LIB}/def.rb"
+<% if backend == "mysql" %>require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>require_relative "#{LIB}/postgres_backend.rb"<% end %>
+list=list_all_guests
 
-#Checking if there is at least one guest on the system
-xml = Dir["#{GUESTS_DIR}/*/*.xml"]
-if xml[0].nil?
+if list[0].nil?
   new_vnc_port="5901"
   new_mac_address="52:54:aa:" + (1..3).map{"%0.2X"%rand(256)}.join(":").downcase
   puts "First guest on that server!\n Assigning VNC port: #{new_vnc_port} and mac_address: #{new_mac_address}".bold
 else
-  #Calling the method generate_value for a new vnc_port and a new mac_address
-  vnc_ports_use = generate_value "vnc", 59, "'", "vnc_ports_use"
-  mac_address_use = generate_value "mac address", ":", "'/>", "mac_address_use"
+  vnc_port_use=[]
+  list.each_with_index do |l, index|
+    vnc_port_use << list[index]["vnc_port"]
+  end
+  vnc_available=[]
+  vnc_port_use.each_with_index do |x, index|
+    idx=vnc_port_use[index+=1]
+    z=x+=1
+    unless z == idx.to_i
+      unless vnc_port_use.include?(z)
+        vnc_available << z
+      end
+    end
+  end
+  new_vnc_port=vnc_available[0]
 
-  #Found the higher VNC port number and add 1 to it.
-  new_vnc_port=vnc_ports_use.sort.last.to_i+1
-  #Generates a random MAC address
   new_mac_address="52:54:aa:" + (1..3).map{"%0.2X"%rand(256)}.join(":").downcase
-  #Test is the generated mac is already in use by a guest.
+  mac_address_use=[]
+  list.each_with_index do |l, index|
+    mac_address_use << list[index]["mac_address"]
+  end
   mac_address_use.each do |mac|
     if mac == new_mac_address
       puts "The generated mac_address is already assigned to another KVM guest...".red.bold
@@ -123,11 +133,11 @@ if ENV['RD_OPTION_SOURCE'].end_with? "iso"
   ip="DHCP"
 <% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
+  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "no"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
+  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "no"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% end %>
 
@@ -140,11 +150,11 @@ elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
   require_relative "#{LIB}/generate_static_ip.rb"
   ip = generate_ip ENV['RD_OPTION_NAME'], ENV['RD_OPTION_NETWORK_TYPE']<% if backend == "mysql" %>
   require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
+  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "no"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
   require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port, ENV['RD_OPTION_NETWORK_TYPE'], "no"
+  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "no"
   require_relative "#{LIB}/lists.rb"
   add_to_list "vm", guest, ip<% end %>
 
@@ -180,7 +190,24 @@ File.open(XML, "w") do |file|
   file.puts xml_content
 end
 
-puts "New XML file created at: " + XML.underline]]></script>
+<% if bind9 == "yes" %>#Update Bind
+list=list_all_guests
+serial=Time.now.to_i
+require 'erb'
+template = ERB.new(File.read("<%= kvm_folder %>/templates/db.local.erb"))
+xml_content = template.result(binding)
+File.open("/etc/bind/db.local", "w") do |file|
+ file.puts xml_content
+end
+template = ERB.new(File.read("<%= kvm_folder %>/templates/db.1XX.erb"))
+xml_content = template.result(binding)
+File.open("/etc/bind/db.1XX", "w") do |file|
+  file.puts xml_content
+end
+puts "Reloading Bind9..."
+system("service bind9 reload")<% end %>
+
+puts "\nNew XML file created at: " + XML.underline]]></script>
       </command>
     </sequence>
     <description>This will generate a guest XML.</description>
@@ -317,7 +344,24 @@ end
 puts "removing folder: " + "#{GUEST}/\n".red
 FileUtils.rm_rf(GUEST)
 
-puts "Instance destroyed and files removed"
+<% if bind9 == "yes" %>#Update Bind
+list=list_all_guests
+serial=Time.now.to_i
+require 'erb'
+template = ERB.new(File.read("<%= kvm_folder %>/templates/db.local.erb"))
+xml_content = template.result(binding)
+File.open("/etc/bind/db.local", "w") do |file|
+ file.puts xml_content
+end
+template = ERB.new(File.read("<%= kvm_folder %>/templates/db.1XX.erb"))
+xml_content = template.result(binding)
+File.open("/etc/bind/db.1XX", "w") do |file|
+  file.puts xml_content
+end
+puts "Reloading Bind9..."
+system("service bind9 reload")<% end %>
+
+puts "\nInstance destroyed and files removed"
 puts "Carry on..."]]></script>
       </command>
     </sequence>

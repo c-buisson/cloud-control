@@ -1,9 +1,9 @@
 #!/usr/bin/ruby
 
-def add_guest(name, ip, vnc_port, network_type, chef)
+def add_guest(name, ip, vnc_port, mac_address, network_type, chef)
   begin
     conn = PG::Connection.open(:dbname => "<%= database_name %>", :user => "pguser")
-    conn.exec_params "INSERT INTO <%= db_kvm_table %> (name, ip, vnc_port, network_type, chef_installed) VALUES ('#{name}', '#{ip}', '#{vnc_port}', '#{network_type}', '#{chef}')"
+    conn.exec_params "INSERT INTO <%= db_kvm_table %> (name, ip, vnc_port, mac_address, network_type, chef_installed) VALUES ('#{name}', '#{ip}', '#{vnc_port}', '#{mac_address}', '#{network_type}', '#{chef}')"
   rescue PG::Error => e
     puts e.error
   end

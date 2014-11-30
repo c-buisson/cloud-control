@@ -1,0 +1,16 @@
+zone "local" {
+  type master;
+  file "/etc/bind/db.local";
+};
+
+zone "122.168.192.in-addr.arpa" {
+  type master;
+  notify no;
+  file "/etc/bind/db.1XX";
+};
+
+<% unless floating == "no" %>zone "<%= third_octet %>.168.192.in-addr.arpa" {
+  type master;
+  notify no;
+  file "/etc/bind/db.1XX";
+};<% end %>

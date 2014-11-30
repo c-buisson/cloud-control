@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 require 'erb'
 
-def chef_generate_scripts(backend, kvm_folder, floating)
+def chef_generate_scripts(backend, kvm_folder, floating, bind9)
   dir=File.expand_path(File.dirname(__FILE__))
 
   #Generate Rundeck xml

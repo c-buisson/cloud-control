@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 require 'erb'
 
-def generate_scripts(backend, database_name, db_kvm_table, mysql_password, kvm_folder, ssh_keys, floating, rundeck_key)
+def generate_scripts(backend, database_name, db_kvm_table, mysql_password, kvm_folder, ssh_keys, floating, rundeck_key, bind9, ip_host)
   dir=File.expand_path(File.dirname(__FILE__))
 
   #Generate ENV file
@@ -36,6 +36,7 @@ def generate_scripts(backend, database_name, db_kvm_table, mysql_password, kvm_f
 
   #Generate user-data template file
   var = "<%= ip %>"
+  hostname = "<%= name %>"
   template = ERB.new(File.read("#{dir}/templates/TEMPLATE-user-data-nat.erb"))
   xml_content = template.result(binding)
   File.open("#{kvm_folder}/templates/TEMPLATE-user-data-nat.erb", "w") do |file|

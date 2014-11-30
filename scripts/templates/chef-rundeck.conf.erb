@@ -12,4 +12,4 @@ console log
 setuid rundeck
 env HOME=/var/lib/rundeck
 
-exec chef-rundeck -c /var/lib/rundeck/.chef/knife.rb -e development -u ubuntu -P /tmp/chef-rundeck.pid -w https://<%= Application::IP_HOST %>:<%= CHEF_PORT %>
+exec chef-rundeck -c /var/lib/rundeck/.chef/knife.rb -e development -u ubuntu -P /tmp/chef-rundeck.pid -w https://<%= Installer::IP_HOST %>:<%= CHEF_PORT %>

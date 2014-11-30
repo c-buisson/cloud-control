@@ -6,7 +6,7 @@ eval File.read(vars)
 
 require_relative "menu_chef.rb"
 
-class Application
+class Installer
   def initialize
     rundeck_menu
     main_menu
@@ -16,13 +16,13 @@ class Application
     puts "\nDo you want to install Rundeck?".bold
     puts "  1: Yes\n  2: No".green
     case gets.strip
-      when "1"
+      when "1", "y"
         puts "Installing Rundeck...".bold
         vars= {"rundeck_version" => RUNDECK_VERSION}
         vars=check_vars(vars)
         get_ip_host
         system("sudo scripts/install_rundeck.sh #{IP_HOST} #{RUNDECK_VERSION}")
-      when "2"
+      when "2", "n"
         puts "Moving on..."
       else
         rundeck_menu
@@ -40,7 +40,10 @@ class Application
 
   def main_menu
     puts "\nWhat would you like to install?".bold
-    puts "  1: KVM - Nat only\n  2: KVM - Nat + Floating IPs\n  3: Docker\n  4: Exit...".green
+    puts "  1: kvm-control".green + " - Nat only".bold
+    puts "  2: kvm-control".green + " - Nat + Floating IPs".bold
+    puts "  3: docker-control".green
+    puts "  4: Exit..."
     case gets.strip
       when "1"
         files=["generate_scripts.rb", "chef_generate_scripts.rb", "setup_db.rb", "get_first_cloud_image.rb"]
@@ -53,17 +56,20 @@ class Application
                "mysql_password" => MYSQL_PASSWORD,
                "database_name" => DATABASE_NAME,
                "db_kvm_table" => DB_KVM_TABLE,
-               "ssh_keys" => SSH_KEYS}
+               "ssh_keys" => SSH_KEYS,
+               "bind9" => BIND9}
         vars=check_vars(vars)
         self.class.const_set(:FLOATING, "no")
-        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BACKEND} #{MYSQL_PASSWORD}")
+        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BACKEND} #{MYSQL_PASSWORD} #{BIND9}")
         get_rundeck_key
-        generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, SSH_KEYS, FLOATING, RUNDECK_KEY
+        get_ip_host
+        generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, SSH_KEYS, FLOATING, RUNDECK_KEY, BIND9, IP_HOST
         setup_kvm_db BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD
         get_first_cloud_image KVM_FOLDER, FIRST_IMAGE_SOURCE
+        install_bind9 BIND9, FLOATING
         chef_menu
         if INSTALL_CHEF == "yes"
-          chef_generate_scripts BACKEND, KVM_FOLDER, FLOATING
+          chef_generate_scripts BACKEND, KVM_FOLDER, FLOATING, BIND9
         end
         system("sudo chown -R rundeck. #{KVM_FOLDER}")
       when "2"
@@ -80,17 +86,20 @@ class Application
                "start_ip" => START_IP,
                "end_ip" => END_IP,
                "gateway_ip" => GATEWAY_IP,
-               "ssh_keys" => SSH_KEYS}
+               "ssh_keys" => SSH_KEYS,
+               "bind9" => BIND9}
         vars=check_vars(vars)
         self.class.const_set(:FLOATING, "yes")
-        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BACKEND} #{MYSQL_PASSWORD}")
+        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BACKEND} #{MYSQL_PASSWORD} #{BIND9}")
         get_rundeck_key
-        generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, START_IP, END_IP, GATEWAY_IP, SSH_KEYS, FLOATING, RUNDECK_KEY
+        get_ip_host
+        generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, START_IP, END_IP, GATEWAY_IP, SSH_KEYS, FLOATING, RUNDECK_KEY, BIND9, IP_HOST
         setup_kvm_db BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD
         get_first_cloud_image KVM_FOLDER, FIRST_IMAGE_SOURCE
+        install_bind9 BIND9, FLOATING
         chef_menu
         if INSTALL_CHEF == "yes"
-          chef_generate_scripts BACKEND, KVM_FOLDER, FLOATING
+          chef_generate_scripts BACKEND, KVM_FOLDER, FLOATING, BIND9
         end
         system("sudo chown -R rundeck. #{KVM_FOLDER}")
       when "3"
@@ -101,7 +110,9 @@ class Application
         system("sudo su rundeck -c 'rd-project -p docker-control -a create'")
         system("sudo su rundeck -c 'rd-jobs load -r -f #{DOCKER_FOLDER}/rundeck_jobs.xml -p docker-control'")
       when "4"
-        exit 1
+        restart_rundeck
+        bye
+        exit 0
       else
         main_menu
     end
@@ -147,14 +158,52 @@ class Application
     self.class.const_set(:RUNDECK_KEY, rundeck_key)
   end
 
+  def install_bind9(install, floating)
+    if install == "yes"
+      require 'erb'
+      system("sudo apt-get -y install bind9")
+      system("sudo cp kvm/templates/db.local.erb #{KVM_FOLDER}/templates/db.local.erb")
+      system("sudo cp kvm/templates/db.1XX.erb #{KVM_FOLDER}/templates/db.1XX.erb")
+      if floating == "yes"
+        get_ip_host
+        ip_host=IP_HOST.to_s
+        puts ip_host.split
+        third_octet=ip_host.split(".")[2]
+        template = ERB.new(File.read("kvm/templates/named.conf.local.erb"))
+        xml_content = template.result(binding)
+        File.open("/etc/bind/named.conf.local", "w") do |file|
+          file.puts xml_content
+        end
+      else
+        third_octet=""
+        template = ERB.new(File.read("kvm/templates/named.conf.local.erb"))
+        xml_content = template.result(binding)
+        File.open("/etc/bind/named.conf.local", "w") do |file|
+          file.puts xml_content
+        end
+      end
+      system("sudo adduser rundeck bind")
+      system("sudo chmod 775 /etc/bind/")
+      system("sudo service bind9 restart")
+    end
+  end
+
   def install_done
     puts "\nDo you want to install something else?".bold
     puts "  1: Yes\n  2: No".green
     case gets.strip
-      when "1"
+      when "1", "y"
         main_menu
-      when "2"
+      when "2", "n"
         restart_rundeck
+        bye
+        exit 0
+      else
+        install_done
+    end
+  end
+
+  def bye
         rundeck_url_full=`sudo cat /etc/rundeck/framework.properties |grep framework.server.url |awk '{print $3}'`.chomp.bold+"/menu/home".bold
 puts "
             _
@@ -172,9 +221,7 @@ puts "
      /____  |  ____\\
       /_\\ |_|_| /_\\
 \n"
-      else
-        install_done
-    end
   end
-  Application.new
+
+  Installer.new
 end

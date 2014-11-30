@@ -3,9 +3,10 @@ require 'erb'
 
 def chef_menu
   puts "\nDo you want to setup a Docker container with Chef server?".bold
-  puts "  1. Yes\n  2. No".green
+  puts "  1. Yes".green + " - chef-server-control".bold
+  puts "  2. No".green
   case gets.strip
-    when "1"
+    when "1", "y"
       vars= {"chef_server_container_name" => CHEF_SERVER_CONTAINER_NAME,
              "docker_folder" => DOCKER_FOLDER
             }
@@ -14,11 +15,11 @@ def chef_menu
       system("sudo scripts/install_docker.sh #{DOCKER_FOLDER}")
       get_ip_host
       puts "\nDownloading container and start #{CHEF_SERVER_CONTAINER_NAME}".bold
-      system("scripts/install_docker_chef-server.sh #{CHEF_SERVER_CONTAINER_NAME} #{CHEF_PORT} #{DOCKER_FOLDER} #{Application::IP_HOST}")
+      system("scripts/install_docker_chef-server.sh #{CHEF_SERVER_CONTAINER_NAME} #{CHEF_PORT} #{DOCKER_FOLDER} #{Installer::IP_HOST}")
       generate_rundeck_job
       chef_rundeck
       self.class.const_set(:INSTALL_CHEF, "yes")
-    when "2"
+    when "2", "n"
       self.class.const_set(:INSTALL_CHEF, "no")
       puts "Ok, moving on..."
     else

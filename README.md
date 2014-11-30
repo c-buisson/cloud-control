@@ -25,7 +25,9 @@ You can choose to start a new virtual machine with an ISO or an Ubuntu Cloud ima
 When an Ubuntu Cloud image is used to launch a new instance, the vm will get a static IP. ISO's on the other hand, will get a DHCP ip.
 
 ###Network types:
-*Netmask*: Mission_Control is setup to work on with Class C IPs, therefore the netmask is hard coded to: 255.255.255.0
+*Netmask*: kvm-control was designed to work with Class C IPs, therefore the netmask is hard coded to: 255.255.255.0
+
+*Fqdn*: kvm-control will launch the KVM guests with a fully qualified domain name `.local`. Bind9 will be installed by default to dynamically manage the DNS A and PTR records. See `vars` file.
 
 ####Floating IPs
 

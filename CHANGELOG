@@ -1,6 +1,18 @@
 CHANGELOG
 =========
 
+2.3: 2014-11-29
+---------------
+New Feature:
+- Bind9 can be installed to manage DNS entries dynamically for the KVM guests.
+
+Updates:
+- KVM guest will now have a FQDN name. (.local)
+- Added new DB field "mac_address".
+- Improved vnc_port generation by using the backend database instead of XMLs.
+- Same as above but for mac_addresses.
+- Small updates for the installer.
+
 2.2: 2014-11-21
 ---------------
 New Feature:
