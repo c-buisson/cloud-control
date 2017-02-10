@@ -41,6 +41,7 @@ write_files:
     owner: root:root
 runcmd:
    - sudo /home/ubuntu/set_static_ip.sh
+   - sudo chown ubuntu. -R /home/ubuntu
 final_message: "The system is finally up, after $UPTIME seconds"
 power_state:
  mode: reboot
