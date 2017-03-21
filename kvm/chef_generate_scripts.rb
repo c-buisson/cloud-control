@@ -11,9 +11,7 @@ def chef_generate_scripts(backend, kvm_folder, floating, bind9)
     file.puts xml_content
   end
 
-  system("sudo su rundeck -c 'rd-project -p kvm-control_with-Chef -a create --resources.source.2.config.url=http://localhost:9980 --resources.source.2.type=url --resources.source.2.config.timeout=60 --resources.source.2.config.cache=false'")
-  system("sudo su rundeck -c 'rd-jobs load -r -f #{kvm_folder}/chef-rundeck_jobs.xml -p kvm-control_with-Chef'")
-
+  system("#{dir}/../scripts/create_rd_projects.sh \"kvm-control_with-Chef\" #{kvm_folder}")
   system("sudo chown -R rundeck. #{kvm_folder}")
 
 end

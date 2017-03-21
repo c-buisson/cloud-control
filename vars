@@ -8,13 +8,13 @@
 DATA_FOLDER="/srv/mission_control"
 KVM_FOLDER=DATA_FOLDER + "/kvm-control"
 DOCKER_FOLDER=DATA_FOLDER + "/docker-control"
-RUNDECK_VERSION="2.3.1-1"
+RUNDECK_VERSION="2.7.3-1"
 DATABASE_NAME="mission_control"
 MYSQL_PASSWORD="mcpasswd"
 DB_KVM_TABLE="kvm_guests"
 # Is this server running in a public cloud? (i.e Is this server reachable directly from the Internet? AWS/GoogleCloud/Rackspace)
 # yes OR no
-CLOUD_SERVER=""
+CLOUD_SERVER="no"
 # Which interface will be used to reach Rundeck?
 # NOTE: must be br0 is you are going to assign static Floating IPs to KVM guests!
 INTERFACE_OUT="eth0"

@@ -6,7 +6,7 @@ echo " |\/| | /__\` /__\` | /  \\ |\\ |     /  \` /  \\ |\\ |  |  |__) /  \\ |"
 echo " |  | | .__/ .__/ | \\__/ | \\| ___ \\__, \\__/ | \\|  |  |  \\ \\__/ |___"
 echo -e "\n\nInstallation is progress...\n"
 sudo apt-get -q update
-sudo apt-get -y install build-essential ruby1.9
+sudo apt-get -y install build-essential ruby2.3 ruby2.3-dev
 echo "Installing: bundler"
 sudo gem install bundler --no-ri --no-rdoc
 bundle install

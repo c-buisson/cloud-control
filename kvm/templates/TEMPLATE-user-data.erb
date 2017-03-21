@@ -42,6 +42,7 @@ write_files:
 runcmd:
    - sudo /home/ubuntu/set_static_ip.sh
    - sudo chown ubuntu. -R /home/ubuntu
+   - echo "<%= ip_host %> chef-server" | sudo tee -a /etc/cloud/templates/hosts.debian.tmpl
 final_message: "The system is finally up, after $UPTIME seconds"
 power_state:
  mode: reboot

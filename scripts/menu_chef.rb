@@ -11,11 +11,9 @@ def chef_menu
              "docker_folder" => DOCKER_FOLDER
             }
       vars=check_vars(vars)
-      puts "Installing Docker...".bold
       system("sudo scripts/install_docker.sh #{DOCKER_FOLDER}")
       get_ip_host
-      puts "\nDownloading container and start #{CHEF_SERVER_CONTAINER_NAME}".bold
-      system("scripts/install_docker_chef-server.sh #{CHEF_SERVER_CONTAINER_NAME} #{CHEF_PORT} #{DOCKER_FOLDER} #{Installer::IP_HOST}")
+      system("scripts/install_docker_chef-server.sh #{CHEF_SERVER_CONTAINER_NAME} #{CHEF_PORT} #{DOCKER_FOLDER}")
       generate_rundeck_job
       chef_rundeck
       self.class.const_set(:INSTALL_CHEF, "yes")
@@ -33,20 +31,25 @@ def generate_rundeck_job
     File.open("#{DOCKER_FOLDER}/rundeck_jobs-chef.xml", "w") do |file|
       file.puts xml_content
     end
-  system("sudo su rundeck -c 'rd-project -p chef_server-control -a create'")
-  system("sudo su rundeck -c 'rd-jobs load -r -f #{DOCKER_FOLDER}/rundeck_jobs-chef.xml -p chef_server-control'")
+  dir=File.expand_path(File.dirname(__FILE__))
+  system("#{dir}/../scripts/create_rd_projects.sh \"chef_server-control\" #{DOCKER_FOLDER}")
 end
 
 def chef_rundeck
-  bundle_install "chef-rundeck"
-  unless `ps aux |grep -v grep |grep chef-rundeck`.nil?
-    template = ERB.new(File.read("scripts/templates/chef-rundeck.conf.erb"))
+  unless `ps aux |grep -v grep |grep chef-rundeck` != ""
+    puts "Setting up chef-rundeck".bold
+    dir=File.expand_path(File.dirname(__FILE__))
+    system("#{dir}/../scripts/get_and_install.sh \"chef-rundeck\"")
+    template = ERB.new(File.read("scripts/templates/chef-rundeck.service.erb"))
     xml_content = template.result(binding)
-    File.open("/etc/init/chef-rundeck.conf", "w") do |file|
+    File.open("/etc/systemd/system/chef-rundeck.service", "w") do |file|
       file.puts xml_content
     end
-    system("sudo initctl reload-configuration")
+    system("sudo systemctl daemon-reload")
+    system("sudo systemctl enable chef-rundeck")
     puts "\nStarting chef-rundeck...".bold
-    system("service chef-rundeck restart")
+    system("sudo systemctl start chef-rundeck")
+  else
+    puts "Chef-Rundeck already installed/configured and running. Skipping...".bold
   end
 end

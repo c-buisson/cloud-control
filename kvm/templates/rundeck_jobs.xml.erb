@@ -205,7 +205,7 @@ File.open("/etc/bind/db.1XX", "w") do |file|
   file.puts xml_content
 end
 puts "Reloading Bind9..."
-system("service bind9 reload")<% end %>
+system("sudo systemctl reload bind9")<% end %>
 
 puts "\nNew XML file created at: " + XML.underline]]></script>
       </command>
@@ -359,7 +359,7 @@ File.open("/etc/bind/db.1XX", "w") do |file|
   file.puts xml_content
 end
 puts "Reloading Bind9..."
-system("service bind9 reload")<% end %>
+system("sudo systemctl reload bind9")<% end %>
 
 puts "\nInstance destroyed and files removed"
 puts "Carry on..."]]></script>

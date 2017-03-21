@@ -205,7 +205,7 @@ File.open("/etc/bind/db.1XX", "w") do |file|
   file.puts xml_content
 end
 puts "Reloading Bind9..."
-system("service bind9 reload")<% end %>
+system("sudo systemctl reload bind9")<% end %>
 
 puts "\nNew XML file created at: " + XML.underline]]></script>
       </command>
@@ -316,8 +316,8 @@ puts "\nvirsh undefine #{guest.red.bold}"
 system("virsh undefine #{guest}")
 
 puts "\nClean up Chef server"
-system("knife client -c /var/lib/rundeck/.chef/knife.rb delete -y #{guest}")
-system("knife node -c /var/lib/rundeck/.chef/knife.rb delete -y #{guest}")
+system("knife client -c /var/lib/rundeck/.chef/config.rb delete -y #{guest}")
+system("knife node -c /var/lib/rundeck/.chef/config.rb delete -y #{guest}")
 puts ""
 
 if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "mysql" %>
@@ -364,7 +364,7 @@ File.open("/etc/bind/db.1XX", "w") do |file|
   file.puts xml_content
 end
 puts "Reloading Bind9..."
-system("service bind9 reload")<% end %>
+system("sudo systemctl reload bind9")<% end %>
 
 puts "\nInstance destroyed and files removed"
 puts "Carry on..."]]></script>
@@ -672,7 +672,7 @@ ip = guest_ip ENV['RD_OPTION_NAME']
 
 puts "Sleeping 10 seconds for the guest to fully start."
 sleep 10
-system("knife bootstrap -c /var/lib/rundeck/.chef/knife.rb #{ip} --ssh-user ubuntu -i /var/lib/rundeck/.ssh/id_rsa --no-host-key-verify --node-name #{ENV['RD_OPTION_NAME']} --sudo") or raise "Couldn't bootstrap #{ENV['RD_OPTION_NAME']}...".red
+system("knife bootstrap -c /var/lib/rundeck/.chef/config.rb #{ip} --ssh-user ubuntu -i /var/lib/rundeck/.ssh/id_rsa --no-host-key-verify --node-name #{ENV['RD_OPTION_NAME']} --sudo") or raise "Couldn't bootstrap #{ENV['RD_OPTION_NAME']}...".red
 
 puts "\n#{ENV['RD_OPTION_NAME']} is now bootstrapped to the Chef server!".cyan]]></script>
       </command>

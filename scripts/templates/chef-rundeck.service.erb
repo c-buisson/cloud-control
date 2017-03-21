@@ -1,0 +1,10 @@
+[Unit]
+Description=Chef Rundeck Sinatra App
+After=syslog.target
+
+[Service]
+ExecStart=/usr/local/bin/chef-rundeck -c /var/lib/rundeck/.chef/config.rb -e development -u ubuntu -P /tmp/chef-rundeck.pid -w https://<%= Installer::IP_HOST %>:<%= CHEF_PORT %>
+User=rundeck
+
+[Install]
+WantedBy=default.target

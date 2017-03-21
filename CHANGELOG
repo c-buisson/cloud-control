@@ -1,8 +1,28 @@
 CHANGELOG
 =========
 
+2.4: 2017-03-20
+---------------
+New Features:
+- Using Rundeck will use MySQL has its backend database instead of the default flat file.
+- Implementing RD CLI instead of rd-{projects,jobs} tool.
+- Using Systemd to manage all services.
+- Mission_Control installation is now idempotent.
+- Rundeck projects and jobs are being handled by a single script.
+- wget and installs are being handled by a single script.
+
+Updates:
+- Mission_Control is now Ubuntu Xenial 16.04 LTS compatible.
+  => Ruby 2.3, Java 8, Rundeck 2.7, Mysql 5.7, PostgreSQL 9.5, Docker 1.9 and Chef 12
+- Using Ruby's 'ipaddr' library instead of 'ipaddress'.
+- Rundeck and Chef-Rundeck will auto start.
+- Using Validatorless Bootstraps for Chef clients.
+
+Removed:
+- chef_generate_scripts-floating.rb
+
 2.3.1: 2017-02-10
-----------------
+-----------------
 Fixed:
 - chown /home/ubuntu to ubuntu user instead of root
 

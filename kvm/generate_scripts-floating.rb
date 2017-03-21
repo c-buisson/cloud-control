@@ -31,8 +31,7 @@ def generate_scripts(backend, database_name, db_kvm_table, mysql_password, kvm_f
     end
   end
 
-  system("sudo su rundeck -c 'rd-project -p kvm-control -a create'")
-  system("sudo su rundeck -c 'rd-jobs load -r -f #{kvm_folder}/rundeck_jobs.xml -p kvm-control'")
+  system("#{dir}/../scripts/create_rd_projects.sh \"kvm-control\" #{kvm_folder}")
 
   #Generate user-data template files
   user_data_templates=["TEMPLATE-user-data", "TEMPLATE-user-data-nat"].each do |ud|

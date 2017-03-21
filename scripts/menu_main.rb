@@ -1,6 +1,7 @@
 #!/usr/bin/ruby
 
 require 'colorize'
+require 'ipaddr'
 vars=File.expand_path("../../vars", __FILE__)
 eval File.read(vars)
 
@@ -13,29 +14,26 @@ class Installer
   end
 
   def rundeck_menu
-    puts "\nDo you want to install Rundeck?".bold
-    puts "  1: Yes\n  2: No".green
+    puts "\nDo you want to install or update Rundeck?".bold
+    puts "  1: Yes\n  2: No (Rundeck already installed)".green
+    puts "  3: Exit..."
     case gets.strip
       when "1", "y"
         puts "Installing Rundeck...".bold
-        vars= {"rundeck_version" => RUNDECK_VERSION}
+        vars= {"rundeck_version" => RUNDECK_VERSION,
+               "backend" => BACKEND,
+               "mysql_password" => MYSQL_PASSWORD
+              }
         vars=check_vars(vars)
         get_ip_host
-        system("sudo scripts/install_rundeck.sh #{IP_HOST} #{RUNDECK_VERSION}")
+        system("sudo scripts/install_rundeck.sh #{IP_HOST} #{RUNDECK_VERSION} #{BACKEND} #{MYSQL_PASSWORD}")
       when "2", "n"
         puts "Moving on..."
+      when "3"
+        stop_install
       else
         rundeck_menu
     end
-  end
-
-  def restart_rundeck
-    puts "\nRestart Rundeck to apply new groups to the rundeck user...".bold
-    rundeck_url=`sudo cat /etc/rundeck/framework.properties |grep framework.server.url |awk '{print $3}'`.chomp
-    self.class.const_set(:RUNDECK_URL, rundeck_url)
-    system("sudo service rundeckd restart")
-    system("sudo scripts/check_url.sh #{RUNDECK_URL} 60")
-    puts "\n"
   end
 
   def main_menu
@@ -60,7 +58,7 @@ class Installer
                "bind9" => BIND9}
         vars=check_vars(vars)
         self.class.const_set(:FLOATING, "no")
-        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BACKEND} #{MYSQL_PASSWORD} #{BIND9}")
+        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BIND9}")
         get_rundeck_key
         get_ip_host
         generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, SSH_KEYS, FLOATING, RUNDECK_KEY, BIND9, IP_HOST
@@ -73,7 +71,7 @@ class Installer
         end
         system("sudo chown -R rundeck. #{KVM_FOLDER}")
       when "2"
-        files=["generate_scripts-floating.rb", "chef_generate_scripts-floating.rb", "setup_db.rb", "get_first_cloud_image.rb"]
+        files=["generate_scripts-floating.rb", "chef_generate_scripts.rb", "setup_db.rb", "get_first_cloud_image.rb"]
         files.each do |file|
           require_relative "../kvm/#{file}"
         end
@@ -89,6 +87,21 @@ class Installer
                "ssh_keys" => SSH_KEYS,
                "bind9" => BIND9}
         vars=check_vars(vars)
+        ips = [START_IP, END_IP, GATEWAY_IP]
+        ips.each do |ip|
+          begin
+            ipaddress=IPAddr.new ip.to_s
+          rescue
+            puts "IP (#{ip}) is not valid or nil!\nStopping now...".red
+            exit 1
+          end
+        end
+        ip_start = IPAddr.new START_IP
+        ip_end = IPAddr.new END_IP
+        if ip_start >= ip_end
+          puts "START_IP (#{ip_start}) should start before END_IP (#{ip_end})! Please fix!"
+          exit 1
+        end
         self.class.const_set(:FLOATING, "yes")
         system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BACKEND} #{MYSQL_PASSWORD} #{BIND9}")
         get_rundeck_key
@@ -107,10 +120,9 @@ class Installer
         vars= {"docker_folder" => DOCKER_FOLDER}
         vars=check_vars(vars)
         system("sudo scripts/install_docker.sh #{DOCKER_FOLDER}")
-        system("sudo su rundeck -c 'rd-project -p docker-control -a create'")
-        system("sudo su rundeck -c 'rd-jobs load -r -f #{DOCKER_FOLDER}/rundeck_jobs.xml -p docker-control'")
+        dir=File.expand_path(File.dirname(__FILE__))
+        system("#{dir}/../scripts/create_rd_projects.sh \"docker-control\" #{DOCKER_FOLDER}")
       when "4"
-        restart_rundeck
         bye
         exit 0
       else
@@ -120,12 +132,12 @@ class Installer
   end
 
   def get_ip_host
-    require 'ipaddress'
     ip_host=`sudo scripts/get_interface_ip.rb #{CLOUD_SERVER} #{INTERFACE_OUT}`.chomp
-    if IPAddress.valid? ip_host
+    begin
+      ip_local=IPAddr.new ip_host
       self.class.const_set(:IP_HOST, ip_host)
-    else
-      puts "Host IP is not valid or nil!\nStopping now...".red
+    rescue
+      puts "Host IP (#{ip_host}) is not valid or nil!\nStopping now...".red
       exit 1
     end
   end
@@ -184,7 +196,8 @@ class Installer
       end
       system("sudo adduser rundeck bind")
       system("sudo chmod 775 /etc/bind/")
-      system("sudo service bind9 restart")
+      system("sudo chown rundeck:bind /etc/bind/db.local")
+      system("sudo systemctl restart bind9")
     end
   end
 
@@ -195,7 +208,6 @@ class Installer
       when "1", "y"
         main_menu
       when "2", "n"
-        restart_rundeck
         bye
         exit 0
       else
@@ -203,8 +215,13 @@ class Installer
     end
   end
 
+  def stop_install
+    puts "\nStopping Mission_Control install!"
+    exit 0
+  end
+
   def bye
-        rundeck_url_full=`sudo cat /etc/rundeck/framework.properties |grep framework.server.url |awk '{print $3}'`.chomp.bold+"/menu/home".bold
+        rundeck_url_full=`sudo cat /etc/rundeck/framework.properties |grep framework.server.url |awk '{print $3}'`.chomp.bold
 puts "
             _
           ,' '.

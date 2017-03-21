@@ -16,7 +16,7 @@ The install process will display a menu where you can choose to install any feat
 
 ##Environment
 
-Mission_Control has been developed for **Ubuntu Trusty 14.04 LTS**.
+Mission_Control has been developed for **Ubuntu Xenial 16.04 LTS**.
 
 #*kvm-control*
 
