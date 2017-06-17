@@ -1,6 +1,21 @@
 CHANGELOG
 =========
 
+2.5: 2017-06-16
+---------------
+New Features:
+- The script ensures knife_admin_key.tar.gz is really accessible before downloading it from the chef-server container.
+- Test if br0 interface is present before installing 'kvm-control' with floating IPs.
+- New Docker network range.
+- Using chef-rundeck in a container.
+
+Updates:
+- Using newer Docker image (v2.3).
+- Shell and Ruby lint.
+- Output color for the bash scripts.
+- New env variable for libvirt.
+- chef-server has now is static ip.
+
 2.4: 2017-03-20
 ---------------
 New Features:

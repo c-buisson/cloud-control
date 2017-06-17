@@ -1,10 +1,10 @@
 #!/bin/bash
 
 sudo apt-get -y install qemu-utils cloud-utils kvm libvirt-bin
-sudo mkdir -p $1/{kvm_guests,lib,templates,lists,sources/{iso,cloud_images}}
+sudo mkdir -p "$1"/{kvm_guests,lib,templates,lists,sources/{iso,cloud_images}}
 echo "Add rundeck user to libvirtd and kvm groups"
 sudo adduser rundeck libvirtd && sudo adduser rundeck kvm
-kvm_guests=`sudo virsh list`
+kvm_guests=$(sudo virsh list)
 if [[ -z "$kvm_guests" ]]; then
   echo "Restart libvirtd..."
   sudo systemctl restart libvirt-bin
@@ -23,3 +23,8 @@ if [[ $2 == "yes" ]];then
   fi
   sudo resolvconf -u
 fi
+
+# Restart Rundeck
+systemctl restart rundeckd
+scripts/check_url.sh url http://"$3":4440 60
+grep -q "export LIBVIRT_DEFAULT_URI=qemu:///system" /etc/environment || echo "export LIBVIRT_DEFAULT_URI=qemu:///system" | sudo tee -a /etc/environment

@@ -8,12 +8,15 @@ def chef_menu
   case gets.strip
     when "1", "y"
       vars= {"chef_server_container_name" => CHEF_SERVER_CONTAINER_NAME,
+             "chef_server_container_ip" => CHEF_SERVER_CONTAINER_IP,
+             "chef_rundeck_container_name" => CHEF_RUNDECK_CONTAINER_NAME,
+             "chef_rundeck_container_ip" => CHEF_RUNDECK_CONTAINER_IP,
              "docker_folder" => DOCKER_FOLDER
             }
       vars=check_vars(vars)
       system("sudo scripts/install_docker.sh #{DOCKER_FOLDER}")
       get_ip_host
-      system("scripts/install_docker_chef-server.sh #{CHEF_SERVER_CONTAINER_NAME} #{CHEF_PORT} #{DOCKER_FOLDER}")
+      system("scripts/install_docker_chef-server.sh #{CHEF_SERVER_CONTAINER_NAME} #{CHEF_PORT} #{DOCKER_FOLDER} #{CHEF_SERVER_CONTAINER_IP}")
       generate_rundeck_job
       chef_rundeck
       self.class.const_set(:INSTALL_CHEF, "yes")
@@ -36,19 +39,10 @@ def generate_rundeck_job
 end
 
 def chef_rundeck
-  unless `ps aux |grep -v grep |grep chef-rundeck` != ""
-    puts "Setting up chef-rundeck".bold
+  unless `sudo docker ps |grep chef-rundeck` != ""
+    puts "Setting up chef-rundeck container".bold
     dir=File.expand_path(File.dirname(__FILE__))
-    system("#{dir}/../scripts/get_and_install.sh \"chef-rundeck\"")
-    template = ERB.new(File.read("scripts/templates/chef-rundeck.service.erb"))
-    xml_content = template.result(binding)
-    File.open("/etc/systemd/system/chef-rundeck.service", "w") do |file|
-      file.puts xml_content
-    end
-    system("sudo systemctl daemon-reload")
-    system("sudo systemctl enable chef-rundeck")
-    puts "\nStarting chef-rundeck...".bold
-    system("sudo systemctl start chef-rundeck")
+    system("scripts/install_docker_chef-rundeck.sh #{CHEF_RUNDECK_CONTAINER_NAME} #{CHEF_RUNDECK_CONTAINER_IP} #{CHEF_SERVER_CONTAINER_IP}")
   else
     puts "Chef-Rundeck already installed/configured and running. Skipping...".bold
   end

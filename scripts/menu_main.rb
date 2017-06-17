@@ -58,9 +58,9 @@ class Installer
                "bind9" => BIND9}
         vars=check_vars(vars)
         self.class.const_set(:FLOATING, "no")
-        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BIND9}")
-        get_rundeck_key
         get_ip_host
+        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BIND9} #{IP_HOST}")
+        get_rundeck_key
         generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, SSH_KEYS, FLOATING, RUNDECK_KEY, BIND9, IP_HOST
         setup_kvm_db BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD
         get_first_cloud_image KVM_FOLDER, FIRST_IMAGE_SOURCE
@@ -71,6 +71,12 @@ class Installer
         end
         system("sudo chown -R rundeck. #{KVM_FOLDER}")
       when "2"
+        # Check if there is a bridge inteface br0
+        br = `ifconfig |grep -w br0`
+        if br.empty?
+          puts "Please create a bridge interface in order to use floating IPs!".red
+          exit 1
+        end
         files=["generate_scripts-floating.rb", "chef_generate_scripts.rb", "setup_db.rb", "get_first_cloud_image.rb"]
         files.each do |file|
           require_relative "../kvm/#{file}"
@@ -87,10 +93,11 @@ class Installer
                "ssh_keys" => SSH_KEYS,
                "bind9" => BIND9}
         vars=check_vars(vars)
+        # Check if the START_IP, END_IP, GATEWAY_IP variables are loaded
         ips = [START_IP, END_IP, GATEWAY_IP]
         ips.each do |ip|
           begin
-            ipaddress=IPAddr.new ip.to_s
+            IPAddr.new(ip)
           rescue
             puts "IP (#{ip}) is not valid or nil!\nStopping now...".red
             exit 1
@@ -103,9 +110,9 @@ class Installer
           exit 1
         end
         self.class.const_set(:FLOATING, "yes")
-        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BACKEND} #{MYSQL_PASSWORD} #{BIND9}")
-        get_rundeck_key
         get_ip_host
+        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BIND9} #{IP_HOST}")
+        get_rundeck_key
         generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, START_IP, END_IP, GATEWAY_IP, SSH_KEYS, FLOATING, RUNDECK_KEY, BIND9, IP_HOST
         setup_kvm_db BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD
         get_first_cloud_image KVM_FOLDER, FIRST_IMAGE_SOURCE
@@ -134,7 +141,7 @@ class Installer
   def get_ip_host
     ip_host=`sudo scripts/get_interface_ip.rb #{CLOUD_SERVER} #{INTERFACE_OUT}`.chomp
     begin
-      ip_local=IPAddr.new ip_host
+      IPAddr.new(ip_host)
       self.class.const_set(:IP_HOST, ip_host)
     rescue
       puts "Host IP (#{ip_host}) is not valid or nil!\nStopping now...".red
@@ -149,7 +156,7 @@ class Installer
     File.open("Gemfile", "w") do |file|
       file.puts xml_content
     end
-    system("su #{ENV['SUDO_USER']} -c 'bundle install'")
+    system("bundle install")
   end
 
   def check_vars(variables)
@@ -197,6 +204,7 @@ class Installer
       system("sudo adduser rundeck bind")
       system("sudo chmod 775 /etc/bind/")
       system("sudo chown rundeck:bind /etc/bind/db.local")
+      system("sudo touch /etc/bind/db.1XX && sudo chown rundeck:bind /etc/bind/db.1XX")
       system("sudo systemctl restart bind9")
     end
   end
