@@ -11,7 +11,7 @@ def chef_generate_scripts(backend, kvm_folder, floating, bind9)
     file.puts xml_content
   end
 
-  system("#{dir}/../scripts/create_rd_projects.sh \"kvm-control_with-Chef\" #{kvm_folder}")
-  system("sudo chown -R rundeck. #{kvm_folder}")
+  system("#{dir}/../scripts/rd_cmd.sh \"kvm-control_with-Chef\" #{kvm_folder}")
+  system("chown -R rundeck. #{kvm_folder}")
 
 end

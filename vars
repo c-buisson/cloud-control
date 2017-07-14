@@ -8,16 +8,16 @@
 DATA_FOLDER="/srv/mission_control"
 KVM_FOLDER=DATA_FOLDER + "/kvm-control"
 DOCKER_FOLDER=DATA_FOLDER + "/docker-control"
-RUNDECK_VERSION="2.7.3-1"
+RUNDECK_VERSION="2.8.2-1"
 DATABASE_NAME="mission_control"
 MYSQL_PASSWORD="mcpasswd"
 DB_KVM_TABLE="kvm_guests"
-# Is this server running in a public cloud? (i.e Is this server reachable directly from the Internet? AWS/GoogleCloud/Rackspace)
+# Is this server running in a public cloud? (i.e Is this server reachable directly from the Internet? EC2/GoogleCloud/Azure/Rackspace)
 # yes OR no
 CLOUD_SERVER="no"
 # Which interface will be used to reach Rundeck?
 # NOTE: must be br0 is you are going to assign static Floating IPs to KVM guests!
-INTERFACE_OUT="eth0"
+INTERFACE_OUT="enp0s25"
 
 #_____________
 #KVM variables
@@ -32,14 +32,14 @@ BIND9="yes"
 
 #=> FLOATING IP <=
 # Disregard if you are just going to launch NAT'ed KVM guests.
-# Floating IP range (e.i 192.168.0.1 to 192.168.0.254)
+# Floating IP range (i.e 192.168.0.1 to 192.168.0.254)
 START_IP=""
 END_IP=""
 GATEWAY_IP=""
 
-#_______________
-#Docker variable
-#---------------
+#________________
+#Docker variables
+#----------------
 CHEF_SERVER_CONTAINER_NAME="chef-server"
 CHEF_SERVER_CONTAINER_IP="172.18.0.10"
 CHEF_PORT="443"

@@ -9,7 +9,7 @@ zone "122.168.192.in-addr.arpa" {
   file "/etc/bind/db.1XX";
 };
 
-<% unless floating == "no" %>zone "<%= third_octet %>.168.192.in-addr.arpa" {
+<% unless floating == "no" %>zone "<%= third_byte %>.168.192.in-addr.arpa" {
   type master;
   notify no;
   file "/etc/bind/db.1XX";

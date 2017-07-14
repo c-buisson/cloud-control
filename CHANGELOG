@@ -1,6 +1,41 @@
 CHANGELOG
 =========
 
+2.6: 2017-07-14
+---------------
+New Features:
+- New kvm-control job: "KVM: Delete all guests".
+- New kvm-control job: "Docker: Restart chef-rundeck".
+- Can re-fetch the Knife admin keys if needed.
+- Rundeck-cli now usable by the Linux user that installed Mission_Control.
+- Using job "Source: Add Cloud Image or ISO" to get the first source image.
+- Using Rundeck "Source: Add Cloud Image or ISO" job to fetch first source image instead of separate script.
+
+Updates:
+- Merged chef-server-control and kvm-control_with-Chef projects into kvm-control.
+- Load Rundeck jobs everytime the install script runs.
+- Use new XML format for Rundeck jobs.
+- Don't use 'bundle_install' method anymore. Use 'gem install' instead.
+- Renamed 'third_octet' by 'third_byte'.
+- Cleanup the use of the 'check_vars' method.
+- Took out duplicate jobs in chef-rundeck_jobs.xml.erb.
+- Updated get_ip_host logic.
+- Use libvirt gem for KVM jobs.
+- Don't need to get mysql-connector-java-5.1.40.tar.gz anymore.
+- Don't use sudo command everywhere.
+- Updated README.
+
+Fixes:
+- Don't restart Rundeck while installing KVM.
+
+Removed:
+- scripts/create_rd_projects.sh
+- kvm/templates/get_images.rb.erb
+- kvm/get_first_cloud_image.rb
+- docker/template/rundeck_jobs-chef.xml.erb
+- scripts/templates/Gemfile.erb
+- scripts/get_interface_ip.rb
+
 2.5: 2017-06-16
 ---------------
 New Features:
@@ -10,7 +45,7 @@ New Features:
 - Using chef-rundeck in a container.
 
 Updates:
-- Using newer Docker image (v2.3).
+- Using newer chef-server Docker image (v2.3).
 - Shell and Ruby lint.
 - Output color for the bash scripts.
 - New env variable for libvirt.

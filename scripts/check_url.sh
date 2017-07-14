@@ -26,7 +26,7 @@ if [ "$OPTION" == "url" ]; then
     echo -n "."
 
       if [ "$SECONDS" -ge "$TIMEOUT" ]; then
-        echo "$txtred$URL is not available after $SECONDS seconds...stopping the install!"
+        echo "$txtred $URL is not available after $SECONDS seconds...stopping the install!"
         exit 1
       fi
     done;
@@ -37,21 +37,21 @@ elif [ "$OPTION" == "file" ]; then
   SIZE=0
   echo -e "Blocking until $URL is accessible...\nTimeout: $TIMEOUT seconds."
 
-  while [ $SIZE -lt $TARGET_SIZE ]; do
+  while [ "$SIZE" -lt "$TARGET_SIZE" ]; do
     SIZE=$(curl -Isk $URL | grep Content-Length | awk '{print $2}' | tr -d '\r\n')
 
     sleep 2
     echo -n "."
 
     if [ "$SECONDS" -ge "$TIMEOUT" ]; then
-      echo "$txtred$URL is not available after $SECONDS seconds...stopping the install!"
+      echo "$txtred $URL is not available after $SECONDS seconds...stopping the install!"
       exit 1
     fi
   done;
 
 else
-  echo "$txtred$OPTION is not a valid choice. Please use 'url' or 'file'!"
+  echo "$txtred $OPTION is not a valid choice. Please use 'url' or 'file'!"
   exit 1
 fi
 
-echo -e "\n$txtbold$URL$txtreset is accessible!"
+echo -e "\n$txtbold $URL $txtreset is accessible!"

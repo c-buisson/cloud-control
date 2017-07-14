@@ -9,6 +9,7 @@ require_relative "menu_chef.rb"
 
 class Installer
   def initialize
+    get_ip_host
     rundeck_menu
     main_menu
   end
@@ -20,13 +21,7 @@ class Installer
     case gets.strip
       when "1", "y"
         puts "Installing Rundeck...".bold
-        vars= {"rundeck_version" => RUNDECK_VERSION,
-               "backend" => BACKEND,
-               "mysql_password" => MYSQL_PASSWORD
-              }
-        vars=check_vars(vars)
-        get_ip_host
-        system("sudo scripts/install_rundeck.sh #{IP_HOST} #{RUNDECK_VERSION} #{BACKEND} #{MYSQL_PASSWORD}")
+        system("scripts/install_rundeck.sh #{IP_HOST} #{RUNDECK_VERSION} #{BACKEND} #{MYSQL_PASSWORD}")
       when "2", "n"
         puts "Moving on..."
       when "3"
@@ -44,91 +39,59 @@ class Installer
     puts "  4: Exit..."
     case gets.strip
       when "1"
-        files=["generate_scripts.rb", "chef_generate_scripts.rb", "setup_db.rb", "get_first_cloud_image.rb"]
+        files=["generate_scripts.rb", "chef_generate_scripts.rb", "setup_db.rb"]
         files.each do |file|
           require_relative "../kvm/#{file}"
         end
         puts "Installing KVM (NAT only) and generating Rundeck jobs...".bold
-        vars= {"kvm_folder" => KVM_FOLDER,
-               "backend" => BACKEND,
-               "mysql_password" => MYSQL_PASSWORD,
-               "database_name" => DATABASE_NAME,
-               "db_kvm_table" => DB_KVM_TABLE,
-               "ssh_keys" => SSH_KEYS,
-               "bind9" => BIND9}
-        vars=check_vars(vars)
         self.class.const_set(:FLOATING, "no")
-        get_ip_host
-        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BIND9} #{IP_HOST}")
+        system("scripts/install_kvm.sh #{KVM_FOLDER} #{BIND9} #{IP_HOST}")
         get_rundeck_key
         generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, SSH_KEYS, FLOATING, RUNDECK_KEY, BIND9, IP_HOST
         setup_kvm_db BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD
-        get_first_cloud_image KVM_FOLDER, FIRST_IMAGE_SOURCE
         install_bind9 BIND9, FLOATING
-        chef_menu
+        chef_menu IP_HOST
         if INSTALL_CHEF == "yes"
           chef_generate_scripts BACKEND, KVM_FOLDER, FLOATING, BIND9
+        else
+          system("scripts/rd_cmd.sh \"remove_chef_jobs\" #{KVM_FOLDER}")
         end
-        system("sudo chown -R rundeck. #{KVM_FOLDER}")
+        system("scripts/rd_cmd.sh \"get_first_source\" #{FIRST_IMAGE_SOURCE}")
+        system("chown -R rundeck. #{KVM_FOLDER}")
       when "2"
-        # Check if there is a bridge inteface br0
-        br = `ifconfig |grep -w br0`
-        if br.empty?
-          puts "Please create a bridge interface in order to use floating IPs!".red
-          exit 1
-        end
-        files=["generate_scripts-floating.rb", "chef_generate_scripts.rb", "setup_db.rb", "get_first_cloud_image.rb"]
+        # Check if there is a bridge inteface named 'br0'
+	if BR0_PRESENT == false
+	  puts "Please create a bridge interface named 'br0' in order to use floating IPs!".red
+	  exit 1
+	end
+        files=["generate_scripts-floating.rb", "chef_generate_scripts.rb", "setup_db.rb"]
         files.each do |file|
           require_relative "../kvm/#{file}"
         end
         puts "Installing KVM (NAT + Floating IP) and generating Rundeck jobs...".bold
-        vars= {"kvm_folder" => KVM_FOLDER,
-               "backend" => BACKEND,
-               "mysql_password" => MYSQL_PASSWORD,
-               "database_name" => DATABASE_NAME,
-               "db_kvm_table" => DB_KVM_TABLE,
-               "start_ip" => START_IP,
+        vars={"start_ip" => START_IP,
                "end_ip" => END_IP,
-               "gateway_ip" => GATEWAY_IP,
-               "ssh_keys" => SSH_KEYS,
-               "bind9" => BIND9}
+               "gateway_ip" => GATEWAY_IP}
         vars=check_vars(vars)
-        # Check if the START_IP, END_IP, GATEWAY_IP variables are loaded
-        ips = [START_IP, END_IP, GATEWAY_IP]
-        ips.each do |ip|
-          begin
-            IPAddr.new(ip)
-          rescue
-            puts "IP (#{ip}) is not valid or nil!\nStopping now...".red
-            exit 1
-          end
-        end
-        ip_start = IPAddr.new START_IP
-        ip_end = IPAddr.new END_IP
-        if ip_start >= ip_end
-          puts "START_IP (#{ip_start}) should start before END_IP (#{ip_end})! Please fix!"
-          exit 1
-        end
+        check_vars_ips_for_floating
         self.class.const_set(:FLOATING, "yes")
-        get_ip_host
-        system("sudo scripts/install_kvm.sh #{KVM_FOLDER} #{BIND9} #{IP_HOST}")
+        system("scripts/install_kvm.sh #{KVM_FOLDER} #{BIND9} #{IP_HOST}")
         get_rundeck_key
         generate_scripts BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD, KVM_FOLDER, START_IP, END_IP, GATEWAY_IP, SSH_KEYS, FLOATING, RUNDECK_KEY, BIND9, IP_HOST
         setup_kvm_db BACKEND, DATABASE_NAME, DB_KVM_TABLE, MYSQL_PASSWORD
-        get_first_cloud_image KVM_FOLDER, FIRST_IMAGE_SOURCE
         install_bind9 BIND9, FLOATING
-        chef_menu
+        chef_menu IP_HOST
         if INSTALL_CHEF == "yes"
           chef_generate_scripts BACKEND, KVM_FOLDER, FLOATING, BIND9
+        else
+          system("scripts/rd_cmd.sh \"remove_chef_jobs\" #{KVM_FOLDER}")
         end
-        system("sudo chown -R rundeck. #{KVM_FOLDER}")
+        system("scripts/rd_cmd.sh \"get_first_source\" #{FIRST_IMAGE_SOURCE}")
+        system("chown -R rundeck. #{KVM_FOLDER}")
       when "3"
         puts "Installing Docker and generating Rundeck jobs...".bold
-        vars= {"docker_folder" => DOCKER_FOLDER}
-        vars=check_vars(vars)
-        system("sudo scripts/install_docker.sh #{DOCKER_FOLDER}")
-        dir=File.expand_path(File.dirname(__FILE__))
-        system("#{dir}/../scripts/create_rd_projects.sh \"docker-control\" #{DOCKER_FOLDER}")
+        system("scripts/install_docker.sh #{DOCKER_FOLDER}")
+        system("scripts/rd_cmd.sh \"docker-control\" #{DOCKER_FOLDER}")
       when "4"
         bye
         exit 0
@@ -139,27 +102,53 @@ class Installer
   end
 
   def get_ip_host
-    ip_host=`sudo scripts/get_interface_ip.rb #{CLOUD_SERVER} #{INTERFACE_OUT}`.chomp
-    begin
-      IPAddr.new(ip_host)
-      self.class.const_set(:IP_HOST, ip_host)
-    rescue
-      puts "Host IP (#{ip_host}) is not valid or nil!\nStopping now...".red
+    # Get host IP
+    if CLOUD_SERVER == "yes"
+      ip_host=`curl http://icanhazip.com`.chomp
+    end
+    require 'socket'
+    interfaces={}
+    addr_infos = Socket.getifaddrs
+    addr_infos.each do |addr_info|
+      if addr_info.addr
+	interfaces[addr_info.name]=addr_info.addr.ip_address if addr_info.addr.ipv4?
+      end
+    end
+    # Check if the interface has an IP
+    interface_present=interfaces.key?(INTERFACE_OUT)
+    if interface_present == false
+      puts "The INTERFACE_OUT (#{INTERFACE_OUT}) does not have any IP assigned to it!".red
+      puts "Check 'ifconfig' and update 'vars' file accordingly."
+      exit 1
+    else
+      self.class.const_set(:IP_HOST, interfaces[INTERFACE_OUT])
+      # Check if there is a bridge inteface named 'br0'
+      self.class.const_set(:BR0_PRESENT, interfaces.key?('br0'))
+    end
+  end
+
+  def check_vars_ips_for_floating
+    ips = [START_IP, END_IP, GATEWAY_IP]
+    # Check if each IPs are valid
+    ips.each do |ip|
+      begin
+	IPAddr.new(ip)
+      rescue
+	puts "IP (#{ip}) is not valid or nil!\nStopping now...".red
+	exit 1
+      end
+    end
+    ip_start = IPAddr.new START_IP
+    ip_end = IPAddr.new END_IP
+    if ip_start >= ip_end
+      puts "START_IP (#{ip_start}) should start before END_IP (#{ip_end})! Please fix!"
       exit 1
     end
   end
 
-  def bundle_install(gem)
-    require 'erb'
-    template = ERB.new(File.read("scripts/templates/Gemfile.erb"))
-    xml_content = template.result(binding)
-    File.open("Gemfile", "w") do |file|
-      file.puts xml_content
-    end
-    system("bundle install")
-  end
-
   def check_vars(variables)
+    # Check if the variables aren't empty in 'vars' file.
+    # If a value is missing, ask the user to enter it now.
     vars=[]
     variables.each do |name, var|
       if var.empty?
@@ -173,39 +162,40 @@ class Installer
   end
 
   def get_rundeck_key
-    rundeck_key=`sudo cat /var/lib/rundeck/.ssh/id_rsa.pub`.chomp
+    rundeck_key=`cat /var/lib/rundeck/.ssh/id_rsa.pub`.chomp
     self.class.const_set(:RUNDECK_KEY, rundeck_key)
   end
 
   def install_bind9(install, floating)
     if install == "yes"
       require 'erb'
-      system("sudo apt-get -y install bind9")
-      system("sudo cp kvm/templates/db.local.erb #{KVM_FOLDER}/templates/db.local.erb")
-      system("sudo cp kvm/templates/db.1XX.erb #{KVM_FOLDER}/templates/db.1XX.erb")
+      system("apt-get -y install bind9")
+      system("cp kvm/templates/db.local.erb #{KVM_FOLDER}/templates/db.local.erb")
+      system("cp kvm/templates/db.1XX.erb #{KVM_FOLDER}/templates/db.1XX.erb")
       if floating == "yes"
-        get_ip_host
+        # Add zone for local network IPs.
         ip_host=IP_HOST.to_s
         puts ip_host.split
-        third_octet=ip_host.split(".")[2]
+        third_byte=ip_host.split(".")[2]
         template = ERB.new(File.read("kvm/templates/named.conf.local.erb"))
         xml_content = template.result(binding)
         File.open("/etc/bind/named.conf.local", "w") do |file|
           file.puts xml_content
         end
       else
-        third_octet=""
+        # Add zone for private network (NAT) only.
+        third_byte=""
         template = ERB.new(File.read("kvm/templates/named.conf.local.erb"))
         xml_content = template.result(binding)
         File.open("/etc/bind/named.conf.local", "w") do |file|
           file.puts xml_content
         end
       end
-      system("sudo adduser rundeck bind")
-      system("sudo chmod 775 /etc/bind/")
-      system("sudo chown rundeck:bind /etc/bind/db.local")
-      system("sudo touch /etc/bind/db.1XX && sudo chown rundeck:bind /etc/bind/db.1XX")
-      system("sudo systemctl restart bind9")
+      system("adduser rundeck bind")
+      system("chmod 775 /etc/bind/")
+      system("chown rundeck:bind /etc/bind/db.local")
+      system("touch /etc/bind/db.1XX && chown rundeck:bind /etc/bind/db.1XX")
+      system("systemctl restart bind9")
     end
   end
 
@@ -229,7 +219,7 @@ class Installer
   end
 
   def bye
-        rundeck_url_full=`sudo cat /etc/rundeck/framework.properties |grep framework.server.url |awk '{print $3}'`.chomp.bold
+        rundeck_url_full=`cat /etc/rundeck/framework.properties |grep framework.server.url |awk '{print $3}'`.chomp.bold
 puts "
             _
           ,' '.

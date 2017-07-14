@@ -1,80 +1,108 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
 <joblist>
   <job>
-    <id>0ecde969-5e0e-4911-a775-30e22b567ea6</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing="false" strategy="node-first">
-      <command>
-        <scriptargs/>
-        <script><![CDATA[#!/usr/bin/ruby
-
-guest=ENV['RD_OPTION_NAME']
-eval File.read("<%= kvm_folder %>/ENV")
-
-puts "Creating guest #{guest}...".cyan.bold
-system("virsh create #{GUEST}/#{guest}.xml") or raise "The KVM instance didn't spawn...".red
-
-system("virsh define #{GUEST}/#{guest}.xml") or raise "Couldn't define that instance...".red
-
-puts "Check if #{guest} is running in virsh:"
-system("virsh list --all |grep #{guest}")
-
-vnc=`grep vnc #{GUEST}/#{guest}.xml |awk '{print $3}' |cut -d '=' -f2 |cut -d "'" -f2`
-puts "\nYou can VNC to that server at: " + "0.0.0.0:#{vnc}".bold
-
-require_relative "#{LIB}/mysql_backend.rb"
-ip = guest_ip guest
-
-puts "Wait while #{guest} comes up".bold
-system("
-IP=\"#{ip}\"
-CODE=1
-TIMEOUT=200
-TRIES=0
-echo \"Blocking until ${IP} responds...\"
-echo \"Number of tries: ${TIMEOUT}\"
-echo \"\"
-while [ $CODE -ne 0 ]; do
-  echo \"Try number: $TRIES/$TIMEOUT\"
-  ping -c 1 $IP >/dev/null
-  CODE=$?
-  TRIES=$(( $TRIES + 1 ))
-  if [ $TRIES -ge $TIMEOUT ]; then
-    echo \"$IP is not available after $TRIES seconds...stopping the install!\"
-    exit 1
-  fi
-done;
-echo \"#{guest} is ready, you can now SSH in with: ubuntu@$IP\"")]]></script>
-      </command>
-    </sequence>
-    <description>Will use the guest's xml and start the vm with VIRSH.</description>
-    <name>3.Create VIRSH guest</name>
     <context>
-      <project>kvm-control</project>
-      <options>
-        <option name="name" required="true"/>
+      <options preserveOrder='true'>
+        <option name='name' required='true'>
+          <description>Guest's name</description>
+        </option>
+        <option name='size' required='true'>
+          <description>Disk space in Gb</description>
+        </option>
+        <option name='source' required='true' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json'>
+          <description>Cloud Image or ISO</description>
+        </option>
       </options>
     </context>
-    <uuid>0ecde969-5e0e-4911-a775-30e22b567ea6</uuid>
-  </job>
-  <job>
-    <id>eb389931-e126-45aa-9709-87e9d7c062fa</id>
+    <description>Create a QEMU file for KVM.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>41c655a6-4c98-4b9e-bdd5-3704ad7cbb92</id>
     <loglevel>INFO</loglevel>
-    <sequence keepgoing="false" strategy="node-first">
+    <name>1.Create image disk</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
       <command>
         <errorhandler>
-          <jobref name='Delete guest' nodeStep='true'>
+          <jobref name='KVM: Delete guest' nodeStep='true'>
             <arg line='-name ${option.name}' />
           </jobref>
         </errorhandler>
-        <scriptargs/>
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=ENV['RD_OPTION_NAME']
 eval File.read("<%= kvm_folder %>/ENV")
 
-<% if backend == "mysql" %>require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>require_relative "#{LIB}/postgres_backend.rb"<% end %>
+size=ENV['RD_OPTION_SIZE']
+source=ENV['RD_OPTION_SOURCE']
+
+puts "Creating image file for KVM\n".cyan.bold
+
+#Creating sub-directories
+Dir.mkdir(GUEST)
+Dir.mkdir(SNAPSHOTS)
+Dir.mkdir(KVM_GUEST_IMAGE)
+
+if source.end_with? "iso"
+  puts "That image will be blank (iso mode)\e"
+  system("qemu-img create -f qcow2 #{KVM_GUEST_IMAGE}/#{guest}.img #{size}G")
+elsif source.end_with? "img"
+  puts "That image will be a Cloud image\e"
+  system("qemu-img convert -O qcow2 #{CLOUD_IMAGES}/#{source} #{KVM_GUEST_IMAGE}/#{guest}.img") or raise "Couldn't create #{KVM_GUEST_IMAGE}/#{guest}.img".red
+  puts "Adding diskspace to have: #{size}Gb available"
+  system("qemu-img resize #{KVM_GUEST_IMAGE}/#{guest}.img +`expr #{size} - 2`G") or raise "Couldn't resize #{KVM_GUEST_IMAGE}/#{guest}.img to #{size}".red
+end
+
+puts "\nNew image info:".underline
+system("qemu-img info #{KVM_GUEST_IMAGE}/#{guest}.img")
+puts ""]]></script>
+        <scriptargs />
+      </command>
+    </sequence>
+    <uuid>41c655a6-4c98-4b9e-bdd5-3704ad7cbb92</uuid>
+  </job>
+  <job>
+    <context>
+      <options preserveOrder='true'>
+        <option name='cores' required='true' value='1' values='1,2'>
+          <description>Number of cores</description>
+        </option>
+        <option name='name' required='true'>
+          <description>Guest's name</description>
+        </option><% if floating == "yes" %>
+        <option name='network_type' value='nat' values='floating,nat'>
+          <description>NAT or Floating IP?</description>
+        </option><% elsif floating == "no" %><option name='network_type' value='nat' values='nat'>
+          <description>NAT IP</description>
+        </option><% end %>
+        <option name='ram' value='256' values='1024,2048,256,512'>
+          <description>in Mb</description>
+        </option>
+        <option name='source' required='true' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json'>
+          <description>Cloud Image or ISO</description>
+        </option>
+      </options>
+    </context>
+    <description>This will generate a guest XML.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>c36ab893-f554-4d05-991a-b2ffbb3cabde</id>
+    <loglevel>INFO</loglevel>
+    <name>2.Create guest XML</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <errorhandler>
+          <jobref name='KVM: Delete guest' nodeStep='true'>
+            <arg line='-name ${option.name}' />
+          </jobref>
+        </errorhandler>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=ENV['RD_OPTION_NAME']
+eval File.read("<%= kvm_folder %>/ENV")
+<% if backend == "mysql" %>
+require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+require_relative "#{LIB}/postgres_backend.rb"<% end %>
 list=list_all_guests
 
 if list[0].nil?
@@ -126,20 +154,22 @@ else
   exit 1
 end
 
+with_chef=ENV['RD_OPTION_WITH_CHEF']
+if with_chef.nil?
+  with_chef="no"
+end
+
 #Guessing which type of source we need to create an XML for
 if ENV['RD_OPTION_SOURCE'].end_with? "iso"
   puts "Generating XML file for an ISO".cyan.bold
   type="iso"
   ip="DHCP"
-<% if backend == "mysql" %>
-  require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "no"
+  <% if backend == "mysql" %>
+  require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+  require_relative "#{LIB}/postgres_backend.rb"<% end %>
+  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], with_chef
   require_relative "#{LIB}/lists.rb"
-  add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
-  require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "no"
-  require_relative "#{LIB}/lists.rb"
-  add_to_list "vm", guest, ip<% end %>
+  add_to_list "vm", guest, ip
 
 elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
   puts "Generating XML file for a Cloud Image".cyan.bold
@@ -149,14 +179,11 @@ elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
   Dir.mkdir(USER_DATA) unless Dir.exist?(USER_DATA)
   require_relative "#{LIB}/generate_static_ip.rb"
   ip = generate_ip ENV['RD_OPTION_NAME'], ENV['RD_OPTION_NETWORK_TYPE']<% if backend == "mysql" %>
-  require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "no"
+  require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+  require_relative "#{LIB}/postgres_backend.rb"<% end %>
+  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], with_chef
   require_relative "#{LIB}/lists.rb"
-  add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
-  require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "no"
-  require_relative "#{LIB}/lists.rb"
-  add_to_list "vm", guest, ip<% end %>
+  add_to_list "vm", guest, ip
 
   #generating user-data file to setup the guest hostname
   system("cloud-localds -H #{ENV['RD_OPTION_NAME']} #{USER_DATA}/user-data-#{ENV['RD_OPTION_NAME']}.img #{USER_DATA}/#{ENV['RD_OPTION_NAME']}-user-data.erb") or raise "Couldn't generate user-data image!".red
@@ -190,7 +217,7 @@ File.open(XML, "w") do |file|
   file.puts xml_content
 end
 
-<% if bind9 == "yes" %>#Update Bind
+#Update Bind
 list=list_all_guests
 serial=Time.now.to_i
 require 'erb'
@@ -205,146 +232,143 @@ File.open("/etc/bind/db.1XX", "w") do |file|
   file.puts xml_content
 end
 puts "Reloading Bind9..."
-system("sudo systemctl reload bind9")<% end %>
+system("sudo systemctl reload bind9")
 
 puts "\nNew XML file created at: " + XML.underline]]></script>
+        <scriptargs />
       </command>
     </sequence>
-    <description>This will generate a guest XML.</description>
-    <name>2.Create guest XML</name>
-    <context>
-      <project>kvm-control</project>
-      <options>
-        <option name="cores" value="1" values="1,2" required="true">
-          <description>Number of cores</description>
-        </option>
-        <option name="name" required="true">
-          <description>Guest's name</description>
-        </option><% if floating == "yes" %>
-        <option name='network_type' value='nat' values='floating,nat'>
-          <description>NAT or Floating IP?</description>
-        </option><% elsif floating == "no" %><option name='network_type' value='nat' values='nat'>
-          <description>NAT IP</description>
-        </option><% end %>
-        <option name="ram" value="256" values="1024,2048,256,512">
-          <description>in Mb</description>
-        </option>
-        <option name='source' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json' required='true'>
-          <description>Cloud Image or ISO</description>
-        </option>
-      </options>
-    </context>
-    <uuid>eb389931-e126-45aa-9709-87e9d7c062fa</uuid>
+    <uuid>c36ab893-f554-4d05-991a-b2ffbb3cabde</uuid>
   </job>
   <job>
-    <id>340bfb41-a016-4664-b29e-1850525476a6</id>
+    <context>
+      <options preserveOrder='true'>
+        <option name='name' required='true' />
+      </options>
+    </context>
+    <description>Will use the guest's xml and start the vm with VIRSH.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>e5208703-0365-474e-a037-f2633f4c3b5f</id>
     <loglevel>INFO</loglevel>
-    <sequence keepgoing="false" strategy="node-first">
+    <name>3.Create VIRSH guest</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
       <command>
-        <errorhandler>
-          <jobref name='Delete guest' nodeStep='true'>
-            <arg line='-name ${option.name}' />
-          </jobref>
-        </errorhandler>
-        <scriptargs/>
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=ENV['RD_OPTION_NAME']
 eval File.read("<%= kvm_folder %>/ENV")
 
-size=ENV['RD_OPTION_SIZE']
-source=ENV['RD_OPTION_SOURCE']
+puts "Creating guest #{guest}...".cyan.bold
+system("virsh create #{GUEST}/#{guest}.xml") or raise "The KVM instance didn't spawn...".red
 
-puts "Creating image file for KVM\n".cyan.bold
+system("virsh define #{GUEST}/#{guest}.xml") or raise "Couldn't define that instance...".red
 
-#Creating sub-directories
-Dir.mkdir(GUEST)
-Dir.mkdir(SNAPSHOTS)
-Dir.mkdir(KVM_GUEST_IMAGE)
-
-if source.end_with? "iso"
-  puts "That image will be blank (iso mode)\e"
-  system("qemu-img create -f qcow2 #{KVM_GUEST_IMAGE}/#{guest}.img #{size}G")
-elsif source.end_with? "img"
-  puts "That image will be a Cloud image\e"
-  system("qemu-img convert -O qcow2 #{CLOUD_IMAGES}/#{source} #{KVM_GUEST_IMAGE}/#{guest}.img") or raise "Couldn't create #{KVM_GUEST_IMAGE}/#{guest}.img".red
-  puts "Adding diskspace to have: #{size}Gb available"
-  system("qemu-img resize #{KVM_GUEST_IMAGE}/#{guest}.img +`expr #{size} - 2`G") or raise "Couldn't resize #{KVM_GUEST_IMAGE}/#{guest}.img to #{size}".red
-end
-
-puts "\nNew image info:".underline
-system("qemu-img info #{KVM_GUEST_IMAGE}/#{guest}.img")
-puts ""]]></script>
-      </command>
-    </sequence>
-    <description>Create a QEMU file for KVM.</description>
-    <name>1.Create image disk</name>
-    <context>
-      <project>kvm-control</project>
-      <options>
-        <option name="name" required="true">
-          <description>Guest's name</description>
-        </option>
-        <option name="size" required="true">
-          <description>Disk space in Gb</description>
-        </option>
-        <option name='source' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json' required='true'>
-          <description>Cloud Image or ISO</description>
-        </option>
-      </options>
-    </context>
-    <uuid>340bfb41-a016-4664-b29e-1850525476a6</uuid>
-  </job>
-  <job>
-    <id>d178c0da-7b26-46dd-89ee-76f10b4adc09</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing="false" strategy="node-first">
-      <command>
-        <scriptargs/>
-        <script><![CDATA[#!/usr/bin/ruby
-
-guest=ENV['RD_OPTION_NAME']
-eval File.read("<%= kvm_folder %>/ENV")
-
-puts "Check is instance is running..."
+puts "Check if #{guest} is running in virsh:"
 system("virsh list --all |grep #{guest}")
 
-puts "\nvirsh destroy #{guest.red.bold}"
-system("virsh destroy #{guest}")
+vnc=`grep vnc #{GUEST}/#{guest}.xml |awk '{print $3}' |cut -d '=' -f2 |cut -d "'" -f2`
+puts "\nYou can VNC to that server at: " + "0.0.0.0:#{vnc}".bold
 
-puts "\nvirsh undefine #{guest.red.bold}"
-system("virsh undefine #{guest}")
+<% if backend == "mysql" %>
+require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+require_relative "#{LIB}/postgres_backend.rb"<% end %>
+ip = guest_ip guest
 
-if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "mysql" %>
-  require_relative "#{LIB}/mysql_backend.rb"
+puts "Wait while #{guest} comes up".bold
+system("
+IP=\"#{ip}\"
+CODE=1
+TIMEOUT=200
+TRIES=0
+echo \"Blocking until ${IP} responds...\"
+echo \"Number of tries: ${TIMEOUT}\"
+echo \"\"
+while [ $CODE -ne 0 ]; do
+  echo \"Try number: $TRIES/$TIMEOUT\"
+  ping -c 1 $IP >/dev/null
+  CODE=$?
+  TRIES=$(( $TRIES + 1 ))
+  if [ $TRIES -ge $TIMEOUT ]; then
+    echo \"$IP is not available after $TRIES seconds...stopping the install!\"
+    exit 1
+  fi
+done;
+echo \"#{guest} is ready, you can now SSH in with: ubuntu@$IP\"")
+
+with_chef=ENV['RD_OPTION_WITH_CHEF']
+unless with_chef.nil?
+  if with_chef == "yes"
+    puts "\nBootstrapping #{guest} with 'chef-server'!\n".bold
+    system("rd run -p kvm-control -j \"4.Bootstrap guest\" -f -- -name #{guest}") or raise "Couldn't bootstrap #{guest} on chef-server...".red
+  end
+end
+]]></script>
+        <scriptargs />
+      </command>
+    </sequence>
+    <uuid>e5208703-0365-474e-a037-f2633f4c3b5f</uuid>
+  </job>
+  <job>
+    <context>
+      <options preserveOrder='true'>
+        <option name='name' required='true' valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json'>
+          <description>Guest's name</description>
+        </option>
+      </options>
+    </context>
+    <description>Destroy a vm and remove all its files.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>d19116c4-98a7-4153-8139-52c88a435953</id>
+    <loglevel>INFO</loglevel>
+    <name>KVM: Delete guest</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=ENV['RD_OPTION_NAME']
+eval File.read("<%= kvm_folder %>/ENV")
+require 'libvirt'
+require_relative "#{LIB}/lists.rb"<% if backend == "mysql" %>
+require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+require_relative "#{LIB}/postgres_backend.rb"<% end %>
+
+conn = Libvirt::open('qemu:///system')
+conn.list_domains.each do |domid|
+dom = conn.lookup_domain_by_id(domid)
+  if dom.name == guest
+    puts "Deleting running guest: #{dom.name}".red.bold
+    dom.destroy
+    dom.undefine
+  end
+end
+conn.list_defined_domains.each do |domname|
+  if domname == guest
+    puts "Deleting stopped guest: #{domname}".red.bold
+    system("virsh -q undefine #{domname}")
+  end
+end
+conn.close
+
+if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")
   ip = guest_ip guest
   remove_guest guest
-  require_relative "#{LIB}/lists.rb"
-  delete_from_list "vm", guest, ip<% elsif backend == "postgres" %>
-  require_relative "#{LIB}/postgres_backend.rb"
-  ip = guest_ip guest
-  remove_guest guest
-  require_relative "#{LIB}/lists.rb"
-  delete_from_list "vm", guest, ip<% end %>
+  delete_from_list "vm", guest, ip
   puts "#{guest}'s IP address (" + ip.chomp.bold + ") was released"
 else
-  puts "No user-data for that guest, no static IP to release\n"<% if backend == "mysql" %>
-  require_relative "#{LIB}/mysql_backend.rb"
+  puts "No user-data for that guest, no static IP to release\n"
   ip = "DHCP"
   remove_guest guest
-  require_relative "#{LIB}/lists.rb"
-  delete_from_list "vm", guest, ip<% elsif backend == "postgres" %>
-  require_relative "#{LIB}/postgres_backend.rb"
-  ip = "DHCP"
-  remove_guest guest
-  require_relative "#{LIB}/lists.rb"
-  delete_from_list "vm", guest, ip<% end %>
+  delete_from_list "vm", guest, ip
 end
 
 puts "removing folder: " + "#{GUEST}/\n".red
 FileUtils.rm_rf(GUEST)
 
-<% if bind9 == "yes" %>#Update Bind
+#Update Bind
 list=list_all_guests
 serial=Time.now.to_i
 require 'erb'
@@ -359,53 +383,189 @@ File.open("/etc/bind/db.1XX", "w") do |file|
   file.puts xml_content
 end
 puts "Reloading Bind9..."
-system("sudo systemctl reload bind9")<% end %>
+system("sudo systemctl reload bind9")
 
 puts "\nInstance destroyed and files removed"
 puts "Carry on..."]]></script>
+        <scriptargs />
       </command>
     </sequence>
-    <description>Destroy a vm and remove all its files.</description>
-    <name>Delete guest</name>
+    <uuid>d19116c4-98a7-4153-8139-52c88a435953</uuid>
+  </job>
+  <job>
+    <description>Get a list of all the guests' info.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>b164cd29-0676-4901-adf0-920a00162aa1</id>
+    <loglevel>INFO</loglevel>
+    <name>KVM: List all guests info</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=""
+eval File.read("<%= kvm_folder %>/ENV")
+
+Dir["#{LIB}/*_backend.rb"].each {|file| require_relative file }
+puts "From the backend DB:".cyan
+puts list_all_guests
+puts ""
+puts "From Libvirtd".cyan
+system("virsh list --all")]]></script>
+        <scriptargs />
+      </command>
+    </sequence>
+    <uuid>b164cd29-0676-4901-adf0-920a00162aa1</uuid>
+  </job>
+  <job>
+    <description>Starting all the guests.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>324882e4-242d-4a68-8221-828c1a64fcc9</id>
+    <loglevel>INFO</loglevel>
+    <name>KVM: Start all guests</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=""
+eval File.read("<%= kvm_folder %>/ENV")
+require 'libvirt'
+
+conn = Libvirt::open('qemu:///system')
+conn.list_defined_domains.each do |domname|
+  puts "Starting stopped guest: #{domname}".red.bold
+  system("virsh start #{domname}")
+end
+
+sleep 3
+system("virsh list --all")]]></script>
+        <scriptargs />
+      </command>
+    </sequence>
+    <uuid>324882e4-242d-4a68-8221-828c1a64fcc9</uuid>
+  </job>
+  <job>
     <context>
-      <project>kvm-control</project>
-      <options>
-        <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
+      <options preserveOrder='true'>
+        <option name='name' required='true' valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json'>
           <description>Guest's name</description>
         </option>
       </options>
     </context>
-    <uuid>d178c0da-7b26-46dd-89ee-76f10b4adc09</uuid>
-  </job>
-  <job>
-    <id>89f2efe8-2091-430a-88a6-07a992c77862</id>
+    <description>Start a guest.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>03a68476-ee77-491c-bce9-50a46510242a</id>
     <loglevel>INFO</loglevel>
-    <sequence keepgoing="false" strategy="node-first">
+    <name>KVM: Start guest</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
       <command>
-        <jobref name="1.Create image disk">
-          <arg line="-name ${option.name} -size ${option.size} -source ${option.source}"/>
-        </jobref>
-      </command>
-      <command>
-        <jobref name="2.Create guest XML">
-          <arg line="-name ${option.name} -ram ${option.ram} -cores ${option.cores} -source ${option.source} -network_type ${option.network_type}"/>
-        </jobref>
-      </command>
-      <command>
-        <jobref name="3.Create VIRSH guest">
-          <arg line="-name ${option.name}"/>
-        </jobref>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=ENV['RD_OPTION_NAME']
+eval File.read("<%= kvm_folder %>/ENV")
+require 'libvirt'
+
+conn = Libvirt::open('qemu:///system')
+conn.list_defined_domains.each do |domname|
+  if domname == guest
+    puts "Starting stopped guest: #{guest}".red.bold
+    system("virsh start #{guest}")
+  end
+end
+
+sleep 3
+system("virsh list --all |grep #{guest}")]]></script>
+        <scriptargs />
       </command>
     </sequence>
-    <description>Launch a new instance!</description>
-    <name>.Launch KVM guest</name>
+    <uuid>03a68476-ee77-491c-bce9-50a46510242a</uuid>
+  </job>
+  <job>
+    <description>Stopping all the guests.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>395f0f37-90d1-4308-941a-5b937278d6b1</id>
+    <loglevel>INFO</loglevel>
+    <name>KVM: Stop all guests</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='sequential'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=""
+eval File.read("<%= kvm_folder %>/ENV")
+require 'libvirt'
+
+# Get list of all KVM guests
+conn = Libvirt::open('qemu:///system')
+conn.list_domains.each do |domid|
+  dom = conn.lookup_domain_by_id(domid)
+  puts "Stopping running guest: #{dom.name}".red.bold
+  dom.shutdown
+end
+conn.close
+
+sleep 5
+system("virsh list --all")
+]]></script>
+        <scriptargs />
+      </command>
+    </sequence>
+    <uuid>395f0f37-90d1-4308-941a-5b937278d6b1</uuid>
+  </job>
+  <job>
     <context>
-      <project>kvm-control</project>
-      <options>
-        <option name="cores" value="1" values="1,2">
+      <options preserveOrder='true'>
+        <option name='name' required='true' valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json'>
+          <description>Guest's name</description>
+        </option>
+      </options>
+    </context>
+    <description>Stop a guest.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>345ce20c-b2a5-4af3-b7e4-21c81315497d</id>
+    <loglevel>INFO</loglevel>
+    <name>KVM: Stop guest</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=ENV['RD_OPTION_NAME']
+eval File.read("<%= kvm_folder %>/ENV")
+require 'libvirt'
+
+conn = Libvirt::open('qemu:///system')
+conn.list_domains.each do |domid|
+dom = conn.lookup_domain_by_id(domid)
+  if dom.name == guest
+    puts "Stopping running guest: #{dom.name}".red.bold
+    dom.shutdown
+  end
+end
+conn.close
+
+sleep 5
+system("virsh list --all")
+]]></script>
+        <scriptargs />
+      </command>
+    </sequence>
+    <uuid>345ce20c-b2a5-4af3-b7e4-21c81315497d</uuid>
+  </job>
+  <job>
+    <context>
+      <options preserveOrder='true'>
+        <option name='cores' value='1' values='1,2'>
           <description>Number of cores</description>
         </option>
-        <option name="name" required="true">
+        <option name='name' required='true'>
           <description>Guest's name</description>
         </option><% if floating == "yes" %>
         <option name='network_type' value='nat' values='floating,nat'>
@@ -413,25 +573,118 @@ puts "Carry on..."]]></script>
         </option><% elsif floating == "no" %><option name='network_type' value='nat' values='nat'>
           <description>NAT IP</description>
         </option><% end %>
-        <option name="ram" value="256" values="1024,2048,256,512">
+        <option name='ram' value='256' values='1024,128,2048,256,512'>
           <description>in Mb</description>
         </option>
-        <option name="size" required="true">
+        <option name='size' required='true'>
           <description>Disk space in Gb</description>
         </option>
-        <option name='source' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json' required='true'>
+        <option name='source' required='true' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json'>
           <description>Cloud image or ISO</description>
         </option>
       </options>
     </context>
-    <uuid>89f2efe8-2091-430a-88a6-07a992c77862</uuid>
-  </job>
-  <job>
-    <id>50fefa5d-7344-40b3-93d2-07e8ec34e56d</id>
+    <description>Launch a new instance!</description>
+    <executionEnabled>true</executionEnabled>
+    <id>42d8f84b-ee23-4fac-bab9-2c07b6b422bd</id>
     <loglevel>INFO</loglevel>
+    <name>.Launch KVM guest</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
     <sequence keepgoing='false' strategy='node-first'>
       <command>
+        <jobref name='1.Create image disk'>
+          <arg line='-name ${option.name} -size ${option.size} -source ${option.source}' />
+        </jobref>
+      </command>
+      <command>
+        <jobref name='2.Create guest XML'>
+          <arg line='-name ${option.name} -ram ${option.ram} -cores ${option.cores} -source ${option.source} -network_type ${option.network_type}' />
+        </jobref>
+      </command>
+      <command>
+        <jobref name='3.Create VIRSH guest'>
+          <arg line='-name ${option.name}' />
+        </jobref>
+      </command>
+    </sequence>
+    <uuid>42d8f84b-ee23-4fac-bab9-2c07b6b422bd</uuid>
+  </job>
+  <job>
+    <context>
+      <options preserveOrder='true'>
+        <option name='URL' required='true'>
+          <description>Cloud Image or ISO</description>
+        </option>
+      </options>
+    </context>
+    <description>Adding a new source file. Ubuntu Cloud Image or ISO.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>99e0fc01-29c6-4e3a-9e50-bed6841c0f58</id>
+    <loglevel>INFO</loglevel>
+    <name>Source: Add Cloud Image or ISO</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=""
+eval File.read("<%= kvm_folder %>/ENV")
+require_relative "#{LIB}/lists.rb"
+require 'fileutils'
+
+url=ENV['RD_OPTION_URL']
+action=ENV['RD_OPTION_ACTION']
+filename = url.split("/")[-1]
+
+if url.end_with? "img"
+  type="cloud_image"
+  if File.exist?("<%= kvm_folder %>/sources/cloud_images/"+filename)
+    puts "#{filename} is already in <%= kvm_folder %>/sources/cloud_images/ skipping..."
+  else
+    puts "\nDownloading #{filename}...\n"
+    system("wget #{url} -P #{CLOUD_IMAGES}") or raise "Error while downloading that Cloud Image. Wrong URL maybe?"
+    add_to_list "source", filename, type
+    puts "Download completed!".cyan
+  end
+elsif url.end_with? "iso"
+  type="iso"
+  if File.exist?("<%= kvm_folder %>/sources/iso/"+filename)
+    puts "#{filename} is already in <%= kvm_folder %>/sources/iso/ skipping..."
+  else
+    puts "\nDownloading #{filename}...\n"
+    system("wget #{url} -P #{ISO}") or raise "Error while downloading that ISO. Wrong URL maybe?"
+    add_to_list "source", filename, type
+    puts "Download completed!".cyan
+  end
+else
+  puts "\nDoesn't support this type of source"
+  puts "Must be ISO or Cloud Image\n"
+  exit 1
+end]]></script>
         <scriptargs />
+      </command>
+    </sequence>
+    <uuid>99e0fc01-29c6-4e3a-9e50-bed6841c0f58</uuid>
+  </job>
+  <job>
+    <context>
+      <options preserveOrder='true'>
+        <option name='File' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json'>
+          <description>Pick a file</description>
+        </option>
+      </options>
+    </context>
+    <description>Deleting a source file. Ubuntu Cloud Image or ISO.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>4cc7575e-585e-4511-8dbf-43b13ed59cce</id>
+    <loglevel>INFO</loglevel>
+    <name>Source: Delete Cloud Image or ISO</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=""
@@ -454,196 +707,88 @@ end
 
   delete_from_list "source", file, type
   puts "Source: #{file} deleted!".cyan]]></script>
+        <scriptargs />
       </command>
     </sequence>
-    <description>Deleting a source file. Ubuntu Cloud Image or ISO.</description>
-    <name>Delete source file</name>
-    <context>
-      <project>kvm-control</project>
-      <options>
-        <option name='File' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json'>
-          <description>Pick a file</description>
-        </option>
-      </options>
-    </context>
-    <uuid>50fefa5d-7344-40b3-93d2-07e8ec34e56d</uuid>
+    <uuid>4cc7575e-585e-4511-8dbf-43b13ed59cce</uuid>
   </job>
   <job>
-    <id>738919ad-06cb-4cb2-83dd-ec7117f7358e</id>
+    <description>Destroy all vms and remove all their files.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>eaa03caf-e741-4233-ab81-59425cb478df</id>
     <loglevel>INFO</loglevel>
+    <name>KVM: Delete all guests</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
     <sequence keepgoing='false' strategy='node-first'>
       <command>
-        <scriptargs />
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=""
 eval File.read("<%= kvm_folder %>/ENV")
-require_relative "#{LIB}/lists.rb"
+require 'libvirt'
+require_relative "#{LIB}/lists.rb"<% if backend == "mysql" %>
+require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+require_relative "#{LIB}/postgres_backend.rb"<% end %>
 
-url=ENV['RD_OPTION_URL']
-action=ENV['RD_OPTION_ACTION']
-filename = url.split(/\?/).first.split(/\//).last
-
-if url.end_with? "img"
-  type="cloud_image"
-  puts "\nDownloading #{filename}...\n"
-  system("wget #{url} -P #{CLOUD_IMAGES}") or raise "Error while downloading that Cloud Image. Wrong URL maybe?"
-elsif url.end_with? "iso"
-  type="iso"
-  puts "\nDownloading #{filename}...\n"
-  system("wget #{url} -P #{ISO}") or raise "Error while downloading that ISO. Wrong URL maybe?"
-else
-  puts "\nDoesn't support this type of source"
-  puts "Must be ISO or Cloud Image\n"
-  exit 1
+# Get list of all KVM guests
+all_guests=[]
+conn = Libvirt::open('qemu:///system')
+conn.list_domains.each do |domid|
+  dom = conn.lookup_domain_by_id(domid)
+  all_guests << dom.name
+  puts "\nDeleting running guest: #{dom.name}".red.bold
+  dom.destroy
+  dom.undefine
+end
+conn.list_defined_domains.each do |domname|
+  all_guests << domname
+  puts "\nDeleting stopped guest: #{domname}".red.bold
+  system("virsh -q undefine #{domname}")
 end
 
-  add_to_list "source", filename, type
-  puts "Download completed!".cyan]]></script>
-      </command>
-    </sequence>
-    <description>Adding a new source file. Ubuntu Cloud Image or ISO.</description>
-    <name>Add source file</name>
-    <context>
-      <project>kvm-control</project>
-      <options>
-        <option name='URL' required='true'>
-          <description>Cloud Image or ISO</description>
-        </option>
-      </options>
-    </context>
-    <uuid>738919ad-06cb-4cb2-83dd-ec7117f7358e</uuid>
-  </job>
-  <job>
-    <id>daccc0e0-852c-44cb-af11-f1782943b88b</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/bin/bash
+all_guests.each do |kvm_guest|
+  if File.exist?("#{GUESTS_DIR}/#{kvm_guest}/user-data/#{kvm_guest}-user-data.erb")
+    ip = guest_ip kvm_guest
+    remove_guest kvm_guest
+    delete_from_list "vm", kvm_guest, ip
+    puts "#{kvm_guest}'s IP address (" + ip.chomp.bold + ") was released"
+  else
+    puts "No user-data for that guest, no static IP to release\n"
+    ip = "DHCP"
+    remove_guest kvm_guest
+    delete_from_list "vm", kvm_guest, ip
+  end
+  puts "removing folder: " + "#{GUESTS_DIR}/#{kvm_guest}/\n".red
+  FileUtils.rm_rf(GUESTS_DIR+"/"+kvm_guest)
+end
 
-virsh start $RD_OPTION_NAME
-sleep 5
-virsh list --all |grep $RD_OPTION_NAME
-echo -e "\n $RD_OPTION_NAME is now running!"]]></script>
-      </command>
-    </sequence>
-    <description>Start a vm.</description>
-    <name>Start guest</name>
-    <context>
-      <project>kvm-control</project>
-      <options>
-        <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
-          <description>Guest's name</description>
-        </option>
-      </options>
-    </context>
-    <uuid>daccc0e0-852c-44cb-af11-f1782943b88b</uuid>
-  </job>
-  <job>
-    <id>5a86aa1c-7ef2-4631-94e5-d5487ccb5414</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/bin/bash
+conn.close
 
-virsh shutdown $RD_OPTION_NAME
-sleep 5
-virsh list --all |grep $RD_OPTION_NAME
-echo -e "\n $RD_OPTION_NAME is now shutdown!"]]></script>
-      </command>
-    </sequence>
-    <description>Stop a vm.</description>
-    <name>Stop guest</name>
-    <context>
-      <project>kvm-control</project>
-      <options>
-        <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
-          <description>Guest's name</description>
-        </option>
-      </options>
-    </context>
-    <uuid>5a86aa1c-7ef2-4631-94e5-d5487ccb5414</uuid>
-  </job>
-  <job>
-    <id>ad824dcf-169d-46eb-ba90-2eb39646518d</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/usr/bin/ruby
-
-guest=""
-eval File.read("<%= kvm_folder %>/ENV")
-
-Dir["#{LIB}/*_backend.rb"].each {|file| require_relative file }
-puts "From the backend DB:".cyan
-puts list_all_guests
+#Update Bind
+list=list_all_guests
+serial=Time.now.to_i
+require 'erb'
+template = ERB.new(File.read("<%= kvm_folder %>/templates/db.local.erb"))
+xml_content = template.result(binding)
+File.open("/etc/bind/db.local", "w") do |file|
+ file.puts xml_content
+end
+template = ERB.new(File.read("<%= kvm_folder %>/templates/db.1XX.erb"))
+xml_content = template.result(binding)
+File.open("/etc/bind/db.1XX", "w") do |file|
+  file.puts xml_content
+end
 puts ""
-puts "From Libvirtd".cyan
-system("virsh list --all")]]></script>
-      </command>
-    </sequence>
-    <description>Get a list of all the guests' info.</description>
-    <name>List ALL guests info</name>
-    <context>
-      <project>kvm-control</project>
-    </context>
-    <uuid>ad824dcf-169d-46eb-ba90-2eb39646518d</uuid>
-  </job>
-  <job>
-    <id>3cbeda79-5d8f-4658-be67-a63fa62024e4</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/usr/bin/ruby
+puts "Reloading Bind9...".bold
+system("sudo systemctl reload bind9")
 
-list=`virsh list --all |grep -v running |grep -v Id |awk '{print $2}' |grep -Ev '^$'`.chomp
-
-list.split("\n").each do |vm|
-  system("virsh start #{vm}")
-  sleep 1
-end
-
-sleep 5
-system("virsh list --all")
+puts "\nInstance destroyed and files removed"
+puts "Carry on..."
 ]]></script>
-      </command>
-    </sequence>
-    <description>Starting all the guests.</description>
-    <name>Start ALL non-running guests</name>
-    <context>
-      <project>kvm-control</project>
-    </context>
-    <uuid>3cbeda79-5d8f-4658-be67-a63fa62024e4</uuid>
-  </job>
-  <job>
-    <id>3b2eb65d-00ef-47e6-bb93-64fbc6975768</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='step-first'>
-      <command>
         <scriptargs />
-        <script><![CDATA[#!/usr/bin/ruby
-
-list=`virsh list |grep -v "shut off" |grep -v Id |awk '{print $2}' |grep -Ev '^$'`.chomp
-
-list.split("\n").each do |vm|
-  system("virsh shutdown #{vm}")
-  sleep 1
-end
-
-sleep 5
-system("virsh list --all")
-]]></script>
       </command>
     </sequence>
-    <description>Stopping all the guests.</description>
-    <name>Stop ALL guests</name>
-    <context>
-      <project>kvm-control</project>
-    </context>
-    <uuid>3b2eb65d-00ef-47e6-bb93-64fbc6975768</uuid>
+    <uuid>eaa03caf-e741-4233-ab81-59425cb478df</uuid>
   </job>
 </joblist>

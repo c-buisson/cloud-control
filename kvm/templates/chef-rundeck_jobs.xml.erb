@@ -1,673 +1,28 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
 <joblist>
   <job>
-    <id>0ecde969-5e0e-4911-a775-30e22b567ea6</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing="false" strategy="node-first">
-      <command>
-        <scriptargs/>
-        <script><![CDATA[#!/usr/bin/ruby
-
-guest=ENV['RD_OPTION_NAME']
-eval File.read("<%= kvm_folder %>/ENV")
-
-puts "Creating guest #{guest}...".cyan.bold
-system("virsh create #{GUEST}/#{guest}.xml") or raise "The KVM instance didn't spawn...".red
-
-system("virsh define #{GUEST}/#{guest}.xml") or raise "Couldn't define that instance...".red
-
-puts "Check if #{guest} is running in virsh:"
-system("virsh list --all |grep #{guest}")
-
-vnc=`grep vnc #{GUEST}/#{guest}.xml |awk '{print $3}' |cut -d '=' -f2 |cut -d "'" -f2`
-puts "\nYou can VNC to that server at: " + "0.0.0.0:#{vnc}".bold
-
-require_relative "#{LIB}/mysql_backend.rb"
-ip = guest_ip guest
-
-puts "Wait while #{guest} comes up".bold
-system("
-IP=\"#{ip}\"
-CODE=1
-TIMEOUT=200
-TRIES=0
-echo \"Blocking until ${IP} responds...\"
-echo \"Number of tries: ${TIMEOUT}\"
-echo \"\"
-while [ $CODE -ne 0 ]; do
-  echo \"Try number: $TRIES/$TIMEOUT\"
-  ping -c 1 $IP >/dev/null
-  CODE=$?
-  TRIES=$(( $TRIES + 1 ))
-  if [ $TRIES -ge $TIMEOUT ]; then
-    echo \"$IP is not available after $TRIES seconds...stopping the install!\"
-    exit 1
-  fi
-done;
-echo \"#{guest} is ready, you can now SSH in with: ubuntu@$IP\"")]]></script>
-      </command>
-    </sequence>
-    <description>Will use the guest's xml and start the vm with VIRSH.</description>
-    <name>3.Create VIRSH guest</name>
     <context>
-      <project>kvm-control_with-Chef</project>
-      <options>
-        <option name="name" required="true"/>
+      <options preserveOrder='true'>
+        <option name='name' required='true' valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json'>
+          <description>Guest's name</description>
+        </option>
       </options>
     </context>
-    <uuid>0ecde969-5e0e-4911-a775-30e22b567ea6</uuid>
-  </job>
-  <job>
-    <id>eb389931-e126-45aa-9709-87e9d7c062fa</id>
+    <description>Bootstrap a guest to the Docker Chef server.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>cac7cc96-2721-4d2e-bd1c-7f5655a0dd11</id>
     <loglevel>INFO</loglevel>
-    <sequence keepgoing="false" strategy="node-first">
+    <name>4.Bootstrap guest</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
       <command>
-        <errorhandler>
-          <jobref name='Delete guest' nodeStep='true'>
-            <arg line='-name ${option.name}' />
-          </jobref>
-        </errorhandler>
-        <scriptargs/>
         <script><![CDATA[#!/usr/bin/ruby
 
 guest=ENV['RD_OPTION_NAME']
 eval File.read("<%= kvm_folder %>/ENV")
-
-<% if backend == "mysql" %>require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>require_relative "#{LIB}/postgres_backend.rb"<% end %>
-list=list_all_guests
-
-if list[0].nil?
-  new_vnc_port="5901"
-  new_mac_address="52:54:aa:" + (1..3).map{"%0.2X"%rand(256)}.join(":").downcase
-  puts "First guest on that server!\n Assigning VNC port: #{new_vnc_port} and mac_address: #{new_mac_address}".bold
-else
-  vnc_port_use=[]
-  list.each_with_index do |l, index|
-    vnc_port_use << list[index]["vnc_port"]
-  end
-  vnc_available=[]
-  vnc_port_use.each_with_index do |x, index|
-    idx=vnc_port_use[index+=1]
-    z=x+=1
-    unless z == idx.to_i
-      unless vnc_port_use.include?(z)
-        vnc_available << z
-      end
-    end
-  end
-  new_vnc_port=vnc_available[0]
-
-  new_mac_address="52:54:aa:" + (1..3).map{"%0.2X"%rand(256)}.join(":").downcase
-  mac_address_use=[]
-  list.each_with_index do |l, index|
-    mac_address_use << list[index]["mac_address"]
-  end
-  mac_address_use.each do |mac|
-    if mac == new_mac_address
-      puts "The generated mac_address is already assigned to another KVM guest...".red.bold
-      exit 1
-    end
-  end
-end
-
-#Creating sub-directories
-Dir.mkdir(GUEST) unless Dir.exist?(GUEST)
-Dir.mkdir(SNAPSHOTS) unless Dir.exist?(SNAPSHOTS)
-Dir.mkdir(KVM_GUEST_IMAGE) unless Dir.exist?(KVM_GUEST_IMAGE)
-
-#Set the proper network_type
-if ENV['RD_OPTION_NETWORK_TYPE'] == "nat"
-  network_type="virbr0"
-elsif ENV['RD_OPTION_NETWORK_TYPE'] == "floating"
-  network_type="br0"
-else
-  puts "Non supported network_type... Stopping!"
-  exit 1
-end
-
-#Guessing which type of source we need to create an XML for
-if ENV['RD_OPTION_SOURCE'].end_with? "iso"
-  puts "Generating XML file for an ISO".cyan.bold
-  type="iso"
-  ip="DHCP"
 <% if backend == "mysql" %>
-  require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "yes"
-  require_relative "#{LIB}/lists.rb"
-  add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
-  require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "yes"
-  require_relative "#{LIB}/lists.rb"
-  add_to_list "vm", guest, ip<% end %>
-
-elsif ENV['RD_OPTION_SOURCE'].end_with? "img"
-  puts "Generating XML file for a Cloud Image".cyan.bold
-  type="cloud"
-
-  #generating interface file with a static IP
-  Dir.mkdir(USER_DATA) unless Dir.exist?(USER_DATA)
-  require_relative "#{LIB}/generate_static_ip.rb"
-  ip = generate_ip ENV['RD_OPTION_NAME'], ENV['RD_OPTION_NETWORK_TYPE']<% if backend == "mysql" %>
-  require_relative "#{LIB}/mysql_backend.rb"
-  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "yes"
-  require_relative "#{LIB}/lists.rb"
-  add_to_list "vm", guest, ip<% elsif backend == "postgres" %>
-  require_relative "#{LIB}/postgres_backend.rb"
-  add_guest guest, ip, new_vnc_port, new_mac_address, ENV['RD_OPTION_NETWORK_TYPE'], "yes"
-  require_relative "#{LIB}/lists.rb"
-  add_to_list "vm", guest, ip<% end %>
-
-  #generating user-data file to setup the guest hostname
-  system("cloud-localds -H #{ENV['RD_OPTION_NAME']} #{USER_DATA}/user-data-#{ENV['RD_OPTION_NAME']}.img #{USER_DATA}/#{ENV['RD_OPTION_NAME']}-user-data.erb") or raise "Couldn't generate user-data image!".red
-  user_data="user-data-#{ENV['RD_OPTION_NAME']}.img"
-else
-  puts "Wrong source type! Must be 'iso' or 'cloud'".red
-  puts "Source: #{ENV['RD_OPTION_SOURCE']}"
-  exit 1
-end
-
-#Set the proper network_type
-if ENV['RD_OPTION_NETWORK_TYPE'] == "nat"
-  network_type="virbr0"
-else ENV['RD_OPTION_NETWORK_TYPE'] == "floating"
-  network_type="br0"
-end
-
-#Collecting data from Rundeck
-name=ENV['RD_OPTION_NAME']
-uuid=SecureRandom.uuid
-ram=ENV['RD_OPTION_RAM'].to_i*1024
-cores=ENV['RD_OPTION_CORES'].to_i
-source=ENV['RD_OPTION_SOURCE']
-mac_address=new_mac_address
-vnc_port=new_vnc_port
-
-#Generate template for the new guest
-template = ERB.new(File.read("#{TEMPLATES}/TEMPLATE.xml.erb"))
-xml_content = template.result(binding)
-File.open(XML, "w") do |file|
-  file.puts xml_content
-end
-
-<% if bind9 == "yes" %>#Update Bind
-list=list_all_guests
-serial=Time.now.to_i
-require 'erb'
-template = ERB.new(File.read("<%= kvm_folder %>/templates/db.local.erb"))
-xml_content = template.result(binding)
-File.open("/etc/bind/db.local", "w") do |file|
- file.puts xml_content
-end
-template = ERB.new(File.read("<%= kvm_folder %>/templates/db.1XX.erb"))
-xml_content = template.result(binding)
-File.open("/etc/bind/db.1XX", "w") do |file|
-  file.puts xml_content
-end
-puts "Reloading Bind9..."
-system("sudo systemctl reload bind9")<% end %>
-
-puts "\nNew XML file created at: " + XML.underline]]></script>
-      </command>
-    </sequence>
-    <description>This will generate a guest XML.</description>
-    <name>2.Create guest XML</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-      <options>
-        <option name="cores" value="1" values="1,2" required="true">
-          <description>Number of cores</description>
-        </option>
-        <option name="name" required="true">
-          <description>Guest's name</description>
-        </option><% if floating == "yes" %>
-        <option name='network_type' value='nat' values='floating,nat'>
-          <description>NAT or Floating IP?</description>
-        </option><% elsif floating == "no" %><option name='network_type' value='nat' values='nat'>
-          <description>NAT IP</description>
-        </option><% end %>
-        <option name="ram" value="256" values="1024,2048,256,512">
-          <description>in Mb</description>
-        </option>
-        <option name='source' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json' required='true'>
-          <description>Cloud Image or ISO</description>
-        </option>
-      </options>
-    </context>
-    <uuid>eb389931-e126-45aa-9709-87e9d7c062fa</uuid>
-  </job>
-  <job>
-    <id>340bfb41-a016-4664-b29e-1850525476a6</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing="false" strategy="node-first">
-      <command>
-        <errorhandler>
-          <jobref name='Delete guest' nodeStep='true'>
-            <arg line='-name ${option.name}' />
-          </jobref>
-        </errorhandler>
-        <scriptargs/>
-        <script><![CDATA[#!/usr/bin/ruby
-
-guest=ENV['RD_OPTION_NAME']
-eval File.read("<%= kvm_folder %>/ENV")
-
-size=ENV['RD_OPTION_SIZE']
-source=ENV['RD_OPTION_SOURCE']
-
-puts "Creating image file for KVM\n".cyan.bold
-
-#Creating sub-directories
-Dir.mkdir(GUEST)
-Dir.mkdir(SNAPSHOTS)
-Dir.mkdir(KVM_GUEST_IMAGE)
-
-if source.end_with? "iso"
-  puts "That image will be blank (iso mode)\e"
-  system("qemu-img create -f qcow2 #{KVM_GUEST_IMAGE}/#{guest}.img #{size}G")
-elsif source.end_with? "img"
-  puts "That image will be a Cloud image\e"
-  system("qemu-img convert -O qcow2 #{CLOUD_IMAGES}/#{source} #{KVM_GUEST_IMAGE}/#{guest}.img") or raise "Couldn't create #{KVM_GUEST_IMAGE}/#{guest}.img".red
-  puts "Adding diskspace to have: #{size}Gb available"
-  system("qemu-img resize #{KVM_GUEST_IMAGE}/#{guest}.img +`expr #{size} - 2`G") or raise "Couldn't resize #{KVM_GUEST_IMAGE}/#{guest}.img to #{size}".red
-end
-
-puts "\nNew image info:".underline
-system("qemu-img info #{KVM_GUEST_IMAGE}/#{guest}.img")
-puts ""]]></script>
-      </command>
-    </sequence>
-    <description>Create a QEMU file for KVM.</description>
-    <name>1.Create image disk</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-      <options>
-        <option name="name" required="true">
-          <description>Guest's name</description>
-        </option>
-        <option name="size" required="true">
-          <description>Disk space in Gb</description>
-        </option>
-        <option name='source' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json' required='true'>
-          <description>Cloud Image or ISO</description>
-        </option>
-      </options>
-    </context>
-    <uuid>340bfb41-a016-4664-b29e-1850525476a6</uuid>
-  </job>
-  <job>
-    <id>d178c0da-7b26-46dd-89ee-76f10b4adc09</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing="false" strategy="node-first">
-      <command>
-        <scriptargs/>
-        <script><![CDATA[#!/usr/bin/ruby
-
-guest=ENV['RD_OPTION_NAME']
-eval File.read("<%= kvm_folder %>/ENV")
-
-puts "Check is instance is running..."
-system("virsh list --all |grep #{guest}")
-
-puts "\nvirsh destroy #{guest.red.bold}"
-system("virsh destroy #{guest}")
-
-puts "\nvirsh undefine #{guest.red.bold}"
-system("virsh undefine #{guest}")
-
-puts "\nClean up Chef server"
-system("knife client -c /var/lib/rundeck/.chef/config.rb delete -y #{guest}")
-system("knife node -c /var/lib/rundeck/.chef/config.rb delete -y #{guest}")
-puts ""
-
-if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "mysql" %>
-  require_relative "#{LIB}/mysql_backend.rb"
-  ip = guest_ip guest
-  remove_guest guest
-  require_relative "#{LIB}/lists.rb"
-  delete_from_list "vm", guest, ip<% elsif backend == "postgres" %>
-  require_relative "#{LIB}/postgres_backend.rb"
-  ip = guest_ip guest
-  remove_guest guest
-  require_relative "#{LIB}/lists.rb"
-  delete_from_list "vm", guest, ip<% end %>
-  puts "#{guest}'s IP address (" + ip.chomp.bold + ") was released"
-else
-  puts "No user-data for that guest, no static IP to release\n"<% if backend == "mysql" %>
-  require_relative "#{LIB}/mysql_backend.rb"
-  ip = "DHCP"
-  remove_guest guest
-  require_relative "#{LIB}/lists.rb"
-  delete_from_list "vm", guest, ip<% elsif backend == "postgres" %>
-  require_relative "#{LIB}/postgres_backend.rb"
-  ip = "DHCP"
-  remove_guest guest
-  require_relative "#{LIB}/lists.rb"
-  delete_from_list "vm", guest, ip<% end %>
-end
-
-puts "removing folder: " + "#{GUEST}/\n".red
-FileUtils.rm_rf(GUEST)
-
-<% if bind9 == "yes" %>#Update Bind
-list=list_all_guests
-serial=Time.now.to_i
-require 'erb'
-template = ERB.new(File.read("<%= kvm_folder %>/templates/db.local.erb"))
-xml_content = template.result(binding)
-File.open("/etc/bind/db.local", "w") do |file|
- file.puts xml_content
-end
-template = ERB.new(File.read("<%= kvm_folder %>/templates/db.1XX.erb"))
-xml_content = template.result(binding)
-File.open("/etc/bind/db.1XX", "w") do |file|
-  file.puts xml_content
-end
-puts "Reloading Bind9..."
-system("sudo systemctl reload bind9")<% end %>
-
-puts "\nInstance destroyed and files removed"
-puts "Carry on..."]]></script>
-      </command>
-    </sequence>
-    <description>Destroy a vm and remove all its files.</description>
-    <name>Delete guest</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-      <options>
-        <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
-          <description>Guest's name</description>
-        </option>
-      </options>
-    </context>
-    <uuid>d178c0da-7b26-46dd-89ee-76f10b4adc09</uuid>
-  </job>
-  <job>
-    <id>89f2efe8-2091-430a-88a6-07a992c77862</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing="false" strategy="node-first">
-      <command>
-        <jobref name="1.Create image disk">
-          <arg line="-name ${option.name} -size ${option.size} -source ${option.source}"/>
-        </jobref>
-      </command>
-      <command>
-        <jobref name="2.Create guest XML">
-          <arg line="-name ${option.name} -ram ${option.ram} -cores ${option.cores} -source ${option.source} -network_type ${option.network_type}"/>
-        </jobref>
-      </command>
-      <command>
-        <jobref name="3.Create VIRSH guest">
-          <arg line="-name ${option.name}"/>
-        </jobref>
-      </command>
-      <command>
-        <jobref name="4.Bootstrap guest">
-          <arg line="-name ${option.name}"/>
-        </jobref>
-      </command>
-    </sequence>
-    <description>Launch a new instance!</description>
-    <name>.Launch KVM guest</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-      <options>
-        <option name="cores" value="1" values="1,2">
-          <description>Number of cores</description>
-        </option>
-        <option name="name" required="true">
-          <description>Guest's name</description>
-        </option><% if floating == "yes" %>
-        <option name='network_type' value='nat' values='floating,nat'>
-          <description>NAT or Floating IP?</description>
-        </option><% elsif floating == "no" %><option name='network_type' value='nat' values='nat'>
-          <description>NAT IP</description>
-        </option><% end %>
-        <option name="ram" value="256" values="1024,2048,256,512">
-          <description>in Mb</description>
-        </option>
-        <option name="size" required="true">
-          <description>Disk space in Gb</description>
-        </option>
-        <option name='source' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json' required='true'>
-          <description>Cloud image or ISO</description>
-        </option>
-      </options>
-    </context>
-    <uuid>89f2efe8-2091-430a-88a6-07a992c77862</uuid>
-  </job>
-  <job>
-    <id>50fefa5d-7344-40b3-93d2-07e8ec34e56d</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/usr/bin/ruby
-
-guest=""
-eval File.read("<%= kvm_folder %>/ENV")
-require_relative "#{LIB}/lists.rb"
-
-file=ENV['RD_OPTION_FILE']
-
-if file.end_with? "img"
-  type="cloud_image"
-  system("rm #{CLOUD_IMAGES}/#{file}") or raise "Error while deleting that Cloud Image from disk."
-elsif file.end_with? "iso"
-  type="iso"
-  system("rm #{ISO}/#{file}") or raise "Error while deleting that ISO from disk."
-else
-  puts "\nDoesn't support this type of source"
-  puts "Must be ISO or Cloud Image\n"
-  exit 1
-end
-
-  delete_from_list "source", file, type
-  puts "Source: #{file} deleted!".cyan]]></script>
-      </command>
-    </sequence>
-    <description>Deleting a source file. Ubuntu Cloud Image or ISO.</description>
-    <name>Delete source file</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-      <options>
-        <option name='File' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json'>
-          <description>Pick a file</description>
-        </option>
-      </options>
-    </context>
-    <uuid>50fefa5d-7344-40b3-93d2-07e8ec34e56d</uuid>
-  </job>
-  <job>
-    <id>738919ad-06cb-4cb2-83dd-ec7117f7358e</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/usr/bin/ruby
-
-guest=""
-eval File.read("<%= kvm_folder %>/ENV")
-require_relative "#{LIB}/lists.rb"
-
-url=ENV['RD_OPTION_URL']
-action=ENV['RD_OPTION_ACTION']
-filename = url.split(/\?/).first.split(/\//).last
-
-if url.end_with? "img"
-  type="cloud_image"
-  puts "\nDownloading #{filename}...\n"
-  system("wget #{url} -P #{CLOUD_IMAGES}") or raise "Error while downloading that Cloud Image. Wrong URL maybe?"
-elsif url.end_with? "iso"
-  type="iso"
-  puts "\nDownloading #{filename}...\n"
-  system("wget #{url} -P #{ISO}") or raise "Error while downloading that ISO. Wrong URL maybe?"
-else
-  puts "\nDoesn't support this type of source"
-  puts "Must be ISO or Cloud Image\n"
-  exit 1
-end
-
-  add_to_list "source", filename, type
-  puts "Download completed!".cyan]]></script>
-      </command>
-    </sequence>
-    <description>Adding a new source file. Ubuntu Cloud Image or ISO.</description>
-    <name>Add source file</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-      <options>
-        <option name='URL' required='true'>
-          <description>Cloud Image or ISO</description>
-        </option>
-      </options>
-    </context>
-    <uuid>738919ad-06cb-4cb2-83dd-ec7117f7358e</uuid>
-  </job>
-  <job>
-    <id>daccc0e0-852c-44cb-af11-f1782943b88b</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/bin/bash
-
-virsh start $RD_OPTION_NAME
-sleep 5
-virsh list --all |grep $RD_OPTION_NAME
-echo -e "\n $RD_OPTION_NAME is now running!"]]></script>
-      </command>
-    </sequence>
-    <description>Start a vm.</description>
-    <name>Start guest</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-      <options>
-        <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
-          <description>Guest's name</description>
-        </option>
-      </options>
-    </context>
-    <uuid>daccc0e0-852c-44cb-af11-f1782943b88b</uuid>
-  </job>
-  <job>
-    <id>5a86aa1c-7ef2-4631-94e5-d5487ccb5414</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/bin/bash
-
-virsh shutdown $RD_OPTION_NAME
-sleep 5
-virsh list --all |grep $RD_OPTION_NAME
-echo -e "\n $RD_OPTION_NAME is now shutdown!"]]></script>
-      </command>
-    </sequence>
-    <description>Stop a vm.</description>
-    <name>Stop guest</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-      <options>
-        <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
-          <description>Guest's name</description>
-        </option>
-      </options>
-    </context>
-    <uuid>5a86aa1c-7ef2-4631-94e5-d5487ccb5414</uuid>
-  </job>
-  <job>
-    <id>ad824dcf-169d-46eb-ba90-2eb39646518d</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/usr/bin/ruby
-
-guest=""
-eval File.read("<%= kvm_folder %>/ENV")
-
-Dir["#{LIB}/*_backend.rb"].each {|file| require_relative file }
-puts "From the backend DB:".cyan
-puts list_all_guests
-puts ""
-puts "From Libvirtd".cyan
-system("virsh list --all")]]></script>
-      </command>
-    </sequence>
-    <description>Get a list of all the guests' info.</description>
-    <name>List ALL guests info</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-    </context>
-    <uuid>ad824dcf-169d-46eb-ba90-2eb39646518d</uuid>
-  </job>
-  <job>
-    <id>3cbeda79-5d8f-4658-be67-a63fa62024e4</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/usr/bin/ruby
-
-list=`virsh list --all |grep -v running |grep -v Id |awk '{print $2}' |grep -Ev '^$'`.chomp
-
-list.split("\n").each do |vm|
-  system("virsh start #{vm}")
-  sleep 1
-end
-
-sleep 5
-system("virsh list --all")
-]]></script>
-      </command>
-    </sequence>
-    <description>Starting all the guests.</description>
-    <name>Start ALL non-running guests</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-    </context>
-    <uuid>3cbeda79-5d8f-4658-be67-a63fa62024e4</uuid>
-  </job>
-  <job>
-    <id>3b2eb65d-00ef-47e6-bb93-64fbc6975768</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='step-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/usr/bin/ruby
-
-list=`virsh list |grep -v "shut off" |grep -v Id |awk '{print $2}' |grep -Ev '^$'`.chomp
-
-list.split("\n").each do |vm|
-  system("virsh shutdown #{vm}")
-  sleep 1
-end
-
-sleep 5
-system("virsh list --all")
-]]></script>
-      </command>
-    </sequence>
-    <description>Stopping all the guests.</description>
-    <name>Stop ALL guests</name>
-    <context>
-      <project>kvm-control_with-Chef</project>
-    </context>
-    <uuid>3b2eb65d-00ef-47e6-bb93-64fbc6975768</uuid>
-  </job>
-  <job>
-    <id>eb6f541a-46ee-4a38-91e7-35e67ca8984e</id>
-    <loglevel>INFO</loglevel>
-    <sequence keepgoing='false' strategy='node-first'>
-      <command>
-        <scriptargs />
-        <script><![CDATA[#!/usr/bin/ruby
-
-guest=ENV['RD_OPTION_NAME']
-eval File.read("<%= kvm_folder %>/ENV")
-
-require_relative "#{LIB}/mysql_backend.rb"
+require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+require_relative "#{LIB}/postgres_backend.rb"<% end %>
 ip = guest_ip ENV['RD_OPTION_NAME']
 
 puts "Sleeping 10 seconds for the guest to fully start."
@@ -675,18 +30,370 @@ sleep 10
 system("knife bootstrap -c /var/lib/rundeck/.chef/config.rb #{ip} --ssh-user ubuntu -i /var/lib/rundeck/.ssh/id_rsa --no-host-key-verify --node-name #{ENV['RD_OPTION_NAME']} --sudo") or raise "Couldn't bootstrap #{ENV['RD_OPTION_NAME']}...".red
 
 puts "\n#{ENV['RD_OPTION_NAME']} is now bootstrapped to the Chef server!".cyan]]></script>
+        <scriptargs />
+      </command>
+      <command>
+        <jobref name='Docker: Restart chef-rundeck' />
       </command>
     </sequence>
-    <description>Bootstrap a guest to the Docker Chef server.</description>
-    <name>4.Bootstrap guest</name>
+    <uuid>cac7cc96-2721-4d2e-bd1c-7f5655a0dd11</uuid>
+  </job>
+  <job>
+    <description>Delete both Chef containers.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>a3a622f8-2e00-4942-bc6d-ce0f8f0b6088</id>
+    <loglevel>INFO</loglevel>
+    <name>Docker: Delete chef-server and chef-rundeck containers</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+require 'colorize'
+
+system("docker rm -f chef-server")
+puts "\nchef-server has been deleted!"
+
+system("docker rm -f chef-rundeck")
+puts "\nchef-rundeck has been deleted!"
+
+puts "Done!".bold]]></script>
+        <scriptargs />
+      </command>
+      <pluginConfig>
+        <WorkflowStrategy>
+          <node-first />
+        </WorkflowStrategy>
+      </pluginConfig>
+    </sequence>
+    <uuid>a3a622f8-2e00-4942-bc6d-ce0f8f0b6088</uuid>
+  </job>
+  <job>
+    <description>Restart chef-rundeck container to have the lastest node list.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>aafaf955-50c1-4db0-a1f0-06126fceb450</id>
+    <loglevel>INFO</loglevel>
+    <name>Docker: Restart chef-rundeck</name>
+    <nodeFilterEditable>false</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <exec>docker restart chef-rundeck</exec>
+      </command>
+      <pluginConfig>
+        <WorkflowStrategy>
+          <node-first></node-first>
+        </WorkflowStrategy>
+      </pluginConfig>
+    </sequence>
+    <uuid>aafaf955-50c1-4db0-a1f0-06126fceb450</uuid>
+  </job>
+  <job>
+    <description>Start both Chef containers.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>1732d47e-23bf-495b-969c-cb8d45b49c10</id>
+    <loglevel>INFO</loglevel>
+    <name>Docker: Start chef-server and chef-rundeck containers</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+require 'colorize'
+
+system("docker start chef-server")
+puts "\nchef-server has been started!"
+
+system("docker start chef-rundeck")
+puts "\nchef-rundeck has been started!"
+
+puts "Done!".bold]]></script>
+        <scriptargs />
+      </command>
+      <pluginConfig>
+        <WorkflowStrategy>
+          <node-first />
+        </WorkflowStrategy>
+      </pluginConfig>
+    </sequence>
+    <uuid>1732d47e-23bf-495b-969c-cb8d45b49c10</uuid>
+  </job>
+  <job>
+    <description>Stop both Chef containers.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>8a7a644c-3415-4db0-96b7-d7f30a395598</id>
+    <loglevel>INFO</loglevel>
+    <name>Docker: Stop chef-server and chef-rundeck containers</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+require 'colorize'
+
+system("docker stop chef-server")
+puts "\nchef-server has been stopped!"
+
+system("docker stop chef-rundeck")
+puts "\nchef-rundeck has been stopped!"
+
+puts "Done!".bold]]></script>
+        <scriptargs />
+      </command>
+    </sequence>
+    <uuid>8a7a644c-3415-4db0-96b7-d7f30a395598</uuid>
+  </job>
+  <job>
     <context>
-      <project>kvm-control_with-Chef</project>
-      <options>
-        <option name="name" valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json' required="true">
+      <options preserveOrder='true'>
+        <option name='name' required='true' valuesUrl='file:<%= kvm_folder %>/lists/vm_list.json'>
           <description>Guest's name</description>
         </option>
       </options>
     </context>
-    <uuid>eb6f541a-46ee-4a38-91e7-35e67ca8984e</uuid>
+    <description>Destroy a vm and remove all its files.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>d19116c4-98a7-4153-8139-52c88a435953</id>
+    <loglevel>INFO</loglevel>
+    <name>KVM: Delete guest</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=ENV['RD_OPTION_NAME']
+eval File.read("<%= kvm_folder %>/ENV")
+require 'libvirt'
+require_relative "#{LIB}/lists.rb"<% if backend == "mysql" %>
+require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+require_relative "#{LIB}/postgres_backend.rb"<% end %>
+
+conn = Libvirt::open('qemu:///system')
+conn.list_domains.each do |domid|
+  dom = conn.lookup_domain_by_id(domid)
+  if dom.name == guest
+    puts "Deleting running guest: #{dom.name}".red.bold
+    dom.destroy
+    dom.undefine
+  end
+end
+conn.list_defined_domains.each do |domname|
+  if domname == guest
+    puts "Deleting stopped guest: #{domname}".red.bold
+    system("virsh -q undefine #{domname}")
+  end
+end
+conn.close
+
+chef_client=`knife node list |grep #{guest}`
+if chef_client.empty?
+  puts "#{guest} isn't bootstrap to Chef-Server, moving on...".bold
+else
+  puts "\nClean up Chef server"
+  system("knife client -c /var/lib/rundeck/.chef/config.rb delete -y #{guest}")
+  system("knife node -c /var/lib/rundeck/.chef/config.rb delete -y #{guest}")
+  system("rd run -p kvm-control -j \"Docker: Restart chef-rundeck\"")
+end
+
+if File.exist?("#{USER_DATA}/#{guest}-user-data.erb")<% if backend == "mysql" %>
+  require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+  require_relative "#{LIB}/postgres_backend.rb"<% end %>
+  ip = guest_ip guest
+  remove_guest guest
+  require_relative "#{LIB}/lists.rb"
+  delete_from_list "vm", guest, ip
+  puts "#{guest}'s IP address (" + ip.chomp.bold + ") was released"
+else
+  puts "No user-data for that guest, no static IP to release\n"<% if backend == "mysql" %>
+  require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+  require_relative "#{LIB}/postgres_backend.rb"<% end %>
+  ip = "DHCP"
+  remove_guest guest
+  require_relative "#{LIB}/lists.rb"
+  delete_from_list "vm", guest, ip
+end
+
+puts "removing folder: " + "#{GUEST}/\n".red
+FileUtils.rm_rf(GUEST)
+
+#Update Bind
+list=list_all_guests
+serial=Time.now.to_i
+require 'erb'
+template = ERB.new(File.read("<%= kvm_folder %>/templates/db.local.erb"))
+xml_content = template.result(binding)
+File.open("/etc/bind/db.local", "w") do |file|
+ file.puts xml_content
+end
+template = ERB.new(File.read("<%= kvm_folder %>/templates/db.1XX.erb"))
+xml_content = template.result(binding)
+File.open("/etc/bind/db.1XX", "w") do |file|
+  file.puts xml_content
+end
+puts "Reloading Bind9..."
+system("sudo systemctl reload bind9")
+
+puts "\nInstance destroyed and files removed"
+puts "Carry on..."]]></script>
+        <scriptargs />
+      </command>
+      <command>
+        <jobref name='Docker: Restart chef-rundeck' />
+      </command>
+    </sequence>
+    <uuid>d19116c4-98a7-4153-8139-52c88a435953</uuid>
+  </job>
+  <job>
+    <context>
+      <options preserveOrder='true'>
+        <option name='cores' value='1' values='1,2'>
+          <description>Number of cores</description>
+        </option>
+        <option name='name' required='true'>
+          <description>Guest's name</description>
+        </option><% if floating == "yes" %>
+        <option name='network_type' value='nat' values='floating,nat'>
+          <description>NAT or Floating IP?</description>
+        </option><% elsif floating == "no" %><option name='network_type' value='nat' values='nat'>
+          <description>NAT IP</description>
+        </option><% end %>
+        <option name='ram' value='256' values='1024,128,2048,256,512'>
+          <description>in Mb</description>
+        </option>
+        <option name='size' required='true'>
+          <description>Disk space in Gb</description>
+        </option>
+        <option name='source' required='true' valuesUrl='file:<%= kvm_folder %>/lists/source_list.json'>
+          <description>Cloud image or ISO</description>
+        </option>
+        <option name='with_chef' value='no' values='no,yes'>
+          <description>Boostrap this guest with 'chef-server'?</description>
+        </option>
+      </options>
+    </context>
+    <description>Launch a new instance!</description>
+    <executionEnabled>true</executionEnabled>
+    <id>42d8f84b-ee23-4fac-bab9-2c07b6b422bd</id>
+    <loglevel>INFO</loglevel>
+    <name>.Launch KVM guest</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <jobref name='1.Create image disk'>
+          <arg line='-name ${option.name} -size ${option.size} -source ${option.source}' />
+        </jobref>
+      </command>
+      <command>
+        <jobref name='2.Create guest XML'>
+          <arg line='-name ${option.name} -ram ${option.ram} -cores ${option.cores} -source ${option.source} -network_type ${option.network_type} -with_chef ${option.with_chef}' />
+        </jobref>
+      </command>
+      <command>
+        <jobref name='3.Create VIRSH guest'>
+          <arg line='-name ${option.name} -with_chef ${option.with_chef}' />
+        </jobref>
+      </command>
+    </sequence>
+    <uuid>42d8f84b-ee23-4fac-bab9-2c07b6b422bd</uuid>
+  </job>
+  <job>
+    <description>Destroy all vms and remove all their files.</description>
+    <executionEnabled>true</executionEnabled>
+    <id>eaa03caf-e741-4233-ab81-59425cb478df</id>
+    <loglevel>INFO</loglevel>
+    <name>KVM: Delete all guests</name>
+    <nodeFilterEditable>true</nodeFilterEditable>
+    <scheduleEnabled>true</scheduleEnabled>
+    <sequence keepgoing='false' strategy='node-first'>
+      <command>
+        <script><![CDATA[#!/usr/bin/ruby
+
+guest=""
+eval File.read("<%= kvm_folder %>/ENV")
+require 'libvirt'
+require_relative "#{LIB}/lists.rb"<% if backend == "mysql" %>
+require_relative "#{LIB}/mysql_backend.rb"<% elsif backend == "postgres" %>
+require_relative "#{LIB}/postgres_backend.rb"<% end %>
+
+# Get list of all KVM guests
+all_guests=[]
+conn = Libvirt::open('qemu:///system')
+conn.list_domains.each do |domid|
+  dom = conn.lookup_domain_by_id(domid)
+  all_guests << dom.name
+  puts "\nDeleting running guest: #{dom.name}".red.bold
+  dom.destroy
+  dom.undefine
+end
+conn.list_defined_domains.each do |domname|
+  all_guests << domname
+  puts "\nDeleting stopped guest: #{domname}".red.bold
+  system("virsh -q undefine #{domname}")
+end
+
+all_guests.each do |kvm_guest|
+  if File.exist?("#{GUESTS_DIR}/#{kvm_guest}/user-data/#{kvm_guest}-user-data.erb")
+    ip = guest_ip kvm_guest
+    remove_guest kvm_guest
+    delete_from_list "vm", kvm_guest, ip
+    puts "#{kvm_guest}'s IP address (" + ip.chomp.bold + ") was released"
+  else
+    puts "No user-data for that guest, no static IP to release\n"
+    ip = "DHCP"
+    remove_guest kvm_guest
+    delete_from_list "vm", kvm_guest, ip
+  end
+  puts "removing folder: " + "#{GUESTS_DIR}/#{kvm_guest}/\n".red
+  FileUtils.rm_rf(GUESTS_DIR+"/"+kvm_guest)
+end
+
+conn.close
+
+# Cleanup Chef-Server
+chef_clients=`knife node list`.split("\n")
+if chef_clients.empty?
+  puts "No Chef-client to remove"
+else
+  puts "Clean up Chef server".bold
+  chef_clients.each do |chef_node|
+    puts "\nRemoving #{chef_node} from Chef".red.bold
+    system("knife client -c /var/lib/rundeck/.chef/config.rb delete -y #{chef_node}")
+    system("knife node -c /var/lib/rundeck/.chef/config.rb delete -y #{chef_node}")
+  end
+end
+
+#Update Bind
+list=list_all_guests
+serial=Time.now.to_i
+require 'erb'
+template = ERB.new(File.read("<%= kvm_folder %>/templates/db.local.erb"))
+xml_content = template.result(binding)
+File.open("/etc/bind/db.local", "w") do |file|
+ file.puts xml_content
+end
+template = ERB.new(File.read("<%= kvm_folder %>/templates/db.1XX.erb"))
+xml_content = template.result(binding)
+File.open("/etc/bind/db.1XX", "w") do |file|
+  file.puts xml_content
+end
+puts ""
+puts "Reloading Bind9...".bold
+system("sudo systemctl reload bind9")
+
+puts "\nInstance destroyed and files removed"
+puts "Carry on..."
+]]></script>
+        <scriptargs />
+      </command>
+      <command>
+        <jobref name='Docker: Restart chef-rundeck' nodeStep='true' />
+      </command>
+    </sequence>
+    <uuid>eaa03caf-e741-4233-ab81-59425cb478df</uuid>
   </job>
 </joblist>

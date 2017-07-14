@@ -3,7 +3,7 @@
 def setup_kvm_db(backend, database_name, db_kvm_table, mysql_password)
   if backend == "mysql"
     begin
-      bundle_install "mysql2"
+      system("gem install mysql2 --no-ri --no-rdoc --conservative")
       Gem.clear_paths
       require 'mysql2'
       client = Mysql2::Client.new(:host => "localhost", :username => "root", :password => mysql_password)
@@ -16,8 +16,9 @@ def setup_kvm_db(backend, database_name, db_kvm_table, mysql_password)
     puts "\nDatabase \"#{database_name}\" created!"
   elsif backend == "postgres"
     begin
+      system("gem install pg --no-ri --no-rdoc --conservative")
+      Gem.clear_paths
       system("createdb -p 5432 -O pguser -U pguser -E UTF8 #{database_name}")
-      bundle_install "pg"
       require 'pg'
       conn = PG::Connection.open(:dbname => "#{database_name}", :user => "pguser")
       conn.exec_params("CREATE TABLE IF NOT EXISTS #{db_kvm_table} (
@@ -26,5 +27,8 @@ def setup_kvm_db(backend, database_name, db_kvm_table, mysql_password)
       puts e.error
     end
     puts "\nDatabase \"#{database_name}\" created!"
+  else
+    puts "BACKEND variable must be: 'mysql' OR 'postgres'! Please update 'vars' file!"
+    exit 1
   end
 end
