@@ -1,12 +1,13 @@
 #!/bin/bash
 txtbold=$(tput bold)
+txtreset=$(tput sgr0)
 chef_present=$(docker ps -a |grep "$1")
 chef_up=$(docker ps |grep "$1")
 chef_docker_ip=$4
 set -e
 if [[ -z "$chef_present" ]]; then
   DEBIAN_FRONTEND=noninteractive apt-get install -q -y chef
-  echo -e "$txtbold Downloading container and start $1\n"
+  echo -e "$txtbold Downloading container and start $1$txtreset\n"
   mkdir -p "$3"/"$1"/logs
   # Get the chef-server Docker image and run it
   docker pull cbuisson/chef-server:v2.3

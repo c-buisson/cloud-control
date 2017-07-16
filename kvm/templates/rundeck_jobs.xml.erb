@@ -116,6 +116,7 @@ else
   end
   vnc_available=[]
   vnc_port_use.each_with_index do |x, index|
+    x=x.to_i
     idx=vnc_port_use[index+=1]
     z=x+=1
     unless z == idx.to_i

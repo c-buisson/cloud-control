@@ -1,5 +1,8 @@
 #!/bin/bash
 
+txtbold=$(tput bold)
+txtreset=$(tput sgr0)
+
 # Get source for Rundeck-CLI
 scripts/get_and_install.sh rundeck-cli
 
@@ -19,17 +22,18 @@ if [[ $3 == "mysql" ]]; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -q -y mysql-server mysql-client libmysqlclient-dev
   # Setup rundeckdb
-  mysql -u root -p"$4" -e "create database rundeckdb"
-  mysql -u root -p"$4" -e "grant ALL on rundeckdb.* to 'rduser'@'localhost' identified by 'rdpasswd';"
+  ruby scripts/setup_rundeck_db.rb $3 "rundeckdb" $4
+  # Update Rundeck config files to use MySQL
   sed -i "s,jdbc:h2:file:/var/lib/rundeck/data/rundeckdb;MVCC=true,jdbc:mysql://localhost/rundeckdb?autoReconnect=true,g" /etc/rundeck/rundeck-config.properties
   echo -e "dataSource.username=rduser\ndataSource.password=rdpasswd" >> /etc/rundeck/rundeck-config.properties
 elif [[ "$3" == "postgres" ]]; then
   apt-get -y install postgresql libpq-dev
-  su - postgres -c "createuser pguser -s"
-  echo -e "local all postgres peer\nlocal all pguser trust\nlocal all all peer\nhost all all 127.0.0.1/32 md5" | tee /etc/postgresql/9.5/main/pg_hba.conf
-  systemctl restart postgresql
+  ruby scripts/setup_rundeck_db.rb $3 "rundeckdb"
+  # Update Rundeck config files to use MySQL
+  sed -i "s,jdbc:h2:file:/var/lib/rundeck/data/rundeckdb;MVCC=true,jdbc:postgresql://localhost/rundeckdb,g" /etc/rundeck/rundeck-config.properties
+  echo -e "dataSource.driverClassName = org.postgresql.Driver\ndataSource.username=rduser\ndataSource.password=rdpasswd" >> /etc/rundeck/rundeck-config.properties
 else
-  echo "Backend: $3 not supported!"
+  echo -e "Backend: $txtbold$3$txtreset not supported!"
   exit 1
 fi
 
@@ -41,7 +45,7 @@ grep -q "$1 $hostname" /etc/hosts || echo "$1 $hostname" | tee -a /etc/hosts
 sed -i "s,/var/lib/rundeck:/bin/false,/var/lib/rundeck:/bin/bash,g" /etc/passwd
 # Create rundeck user SSH keys
 chown rundeck. /var/lib/rundeck
-ls /var/lib/rundeck/.ssh || su rundeck -c "echo -e \"\n\" | ssh-keygen -t rsa -N \"\""
+ls /var/lib/rundeck/.ssh >/dev/null 2>&1 || su rundeck -c "echo -e \"\n\" | ssh-keygen -t rsa -N \"\""
 # Configure rundeck-cli for current and rundeck users
 mkdir -p /var/lib/rundeck/.rd
 mkdir -p ~/.rd
@@ -54,5 +58,4 @@ echo "rundeck ALL=NOPASSWD: /bin/systemctl reload bind9" > /etc/sudoers.d/rundec
 chmod 440 /etc/sudoers.d/rundeck
 # Start Rundeck!
 systemctl enable rundeckd
-systemctl restart rundeckd
-scripts/check_url.sh url http://"$1":4440 60
+scripts/restart_rundeck.sh $1

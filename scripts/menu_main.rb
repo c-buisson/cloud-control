@@ -21,7 +21,7 @@ class Installer
     case gets.strip
       when "1", "y"
         puts "Installing Rundeck...".bold
-        system("scripts/install_rundeck.sh #{IP_HOST} #{RUNDECK_VERSION} #{BACKEND} #{MYSQL_PASSWORD}")
+        system("scripts/install_rundeck.sh #{IP_HOST} #{RUNDECK_VERSION} #{BACKEND} #{MYSQL_PASSWORD}") or exit
       when "2", "n"
         puts "Moving on..."
       when "3"
@@ -90,7 +90,7 @@ class Installer
         system("chown -R rundeck. #{KVM_FOLDER}")
       when "3"
         puts "Installing Docker and generating Rundeck jobs...".bold
-        system("scripts/install_docker.sh #{DOCKER_FOLDER}")
+        system("scripts/install_docker.sh #{DOCKER_FOLDER} #{IP_HOST}")
         system("scripts/rd_cmd.sh \"docker-control\" #{DOCKER_FOLDER}")
       when "4"
         bye

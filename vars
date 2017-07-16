@@ -8,7 +8,7 @@
 DATA_FOLDER="/srv/mission_control"
 KVM_FOLDER=DATA_FOLDER + "/kvm-control"
 DOCKER_FOLDER=DATA_FOLDER + "/docker-control"
-RUNDECK_VERSION="2.8.2-1"
+RUNDECK_VERSION="2.8.4-1"
 DATABASE_NAME="mission_control"
 MYSQL_PASSWORD="mcpasswd"
 DB_KVM_TABLE="kvm_guests"

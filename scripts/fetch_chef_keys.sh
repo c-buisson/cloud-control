@@ -1,6 +1,7 @@
 #!/bin/bash
 txtbold=$(tput bold)
-echo -e "$txtbold Fetching Knife keys\n"
+txtreset=$(tput sgr0)
+echo -e "$txtbold Fetching Knife keys $txtreset\n"
 # Check if the archive containg the knife key is accessible and then download it
 scripts/check_url.sh file https://"$1":"$2"/knife_admin_key.tar.gz 2500 900
 curl -o "$3"/"$1"/knife_admin_key.tar.gz -Ok https://"$1":"$2"/knife_admin_key.tar.gz

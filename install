@@ -9,4 +9,5 @@ echo -e "\n\nInstallation is progress...\n"
 sudo apt-get -q update
 sudo apt-get -y install build-essential curl uuid-runtime ruby2.3 ruby2.3-dev libxml2 libxml2-dev libxslt1-dev gcc make zlib1g-dev ruby-dev liblzma-dev
 sudo gem install json colorize ffi nokogiri --no-ri --no-rdoc --conservative
+mkdir -p post_install
 sudo ruby scripts/menu_main.rb

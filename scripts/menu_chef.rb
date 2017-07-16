@@ -9,8 +9,8 @@ def chef_menu (ip_host)
   case gets.strip
     when "1", "y"
       system("scripts/install_docker.sh #{DOCKER_FOLDER} #{ip_host}")
-      system("scripts/install_docker_chef-server.sh #{CHEF_SERVER_CONTAINER_NAME} #{CHEF_PORT} #{DOCKER_FOLDER} #{CHEF_SERVER_CONTAINER_IP}")
-      chef_rundeck
+      docker_chef("server")
+      docker_chef("rundeck")
       self.class.const_set(:INSTALL_CHEF, "yes")
     when "2", "n"
       self.class.const_set(:INSTALL_CHEF, "no")
@@ -23,12 +23,16 @@ def chef_menu (ip_host)
   end
 end
 
-def chef_rundeck
-  unless `docker ps |grep chef-rundeck` != ""
-    puts "Setting up chef-rundeck container".bold
-    system("scripts/install_docker_chef-rundeck.sh #{CHEF_RUNDECK_CONTAINER_NAME} #{CHEF_RUNDECK_CONTAINER_IP} #{CHEF_SERVER_CONTAINER_IP}")
+def docker_chef (container)
+  if `docker ps |grep chef-#{container}` == ""
+    puts "Setting up chef-#{container} container".bold
+    if container == "server"
+      system("scripts/install_docker_chef-server.sh #{CHEF_SERVER_CONTAINER_NAME} #{CHEF_PORT} #{DOCKER_FOLDER} #{CHEF_SERVER_CONTAINER_IP}")
+    else # chef-rundeck
+      system("scripts/install_docker_chef-rundeck.sh #{CHEF_RUNDECK_CONTAINER_NAME} #{CHEF_RUNDECK_CONTAINER_IP} #{CHEF_SERVER_CONTAINER_IP}")
+    end
   else
-    puts "Chef-Rundeck already installed/configured and running. Skipping...".bold
+    puts "chef-#{container} container already installed/configured and running. Skipping...".bold
   end
 end
 

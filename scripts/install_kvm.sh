@@ -3,6 +3,7 @@
 apt-get -y install qemu-utils cloud-utils kvm libvirt-bin libvirt-dev
 gem install ruby-libvirt --no-ri --no-rdoc --conservative
 mkdir -p "$1"/{kvm_guests,lib,templates,lists,sources/{iso,cloud_images}}
+grep -q "export LIBVIRT_DEFAULT_URI=qemu:///system" /etc/environment || echo "export LIBVIRT_DEFAULT_URI=qemu:///system" | tee -a /etc/environment
 echo "Add rundeck user to libvirtd and kvm groups"
 adduser rundeck libvirtd && adduser rundeck kvm
 kvm_guests=$(virsh list)
@@ -26,9 +27,4 @@ if [[ $2 == "yes" ]];then
 fi
 
 # Restart Rundeck only once to apply new permissions (added rundeck to libvirtd and kvm groups)
-if [ ! -f rundeck_restarted_kvm ]; then
-  systemctl restart rundeckd
-  scripts/check_url.sh url http://"$3":4440 60
-  grep -q "export LIBVIRT_DEFAULT_URI=qemu:///system" /etc/environment || echo "export LIBVIRT_DEFAULT_URI=qemu:///system" | tee -a /etc/environment
-  touch rundeck_restarted_kvm
-fi
+scripts/restart_rundeck.sh $3 "kvm"

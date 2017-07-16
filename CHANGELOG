@@ -1,6 +1,17 @@
 CHANGELOG
 =========
 
+2.7: 2017-07-16
+---------------
+New Features:
+- Rundeck will use MySQL or PostgreSQL has its backend database instead of the default flat file.
+- Mission_Control will store the state of Rundeck in 'post_install' folder.
+
+Updates:
+- Rundeck process restarts via a shared script.
+- Consolidated Chef containers' code in 'menu_chef.rb'.
+- Cleaner output when running 'install' script.
+
 2.6: 2017-07-14
 ---------------
 New Features:
@@ -54,7 +65,7 @@ Updates:
 2.4: 2017-03-20
 ---------------
 New Features:
-- Using Rundeck will use MySQL has its backend database instead of the default flat file.
+- Rundeck will use MySQL has its backend database instead of the default flat file.
 - Implementing RD CLI instead of rd-{projects,jobs} tool.
 - Using Systemd to manage all services.
 - Mission_Control installation is now idempotent.

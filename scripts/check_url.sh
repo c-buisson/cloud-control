@@ -54,4 +54,4 @@ else
   exit 1
 fi
 
-echo -e "\n$txtbold $URL $txtreset is accessible!"
+echo -e "\n$txtbold$URL$txtreset is accessible!"
