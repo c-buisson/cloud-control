@@ -4,8 +4,10 @@ apt-get -y install qemu-utils cloud-utils kvm libvirt-bin libvirt-dev
 gem install ruby-libvirt --no-ri --no-rdoc --conservative
 mkdir -p "$1"/{kvm_guests,lib,templates,lists,sources/{iso,cloud_images}}
 grep -q "export LIBVIRT_DEFAULT_URI=qemu:///system" /etc/environment || echo "export LIBVIRT_DEFAULT_URI=qemu:///system" | tee -a /etc/environment
-echo "Add rundeck user to libvirtd and kvm groups"
-adduser rundeck libvirtd && adduser rundeck kvm
+# Get Libvirt group name from file, it can change between Ubuntu versions.
+libvirt_group=$(grep unix_sock_group /etc/libvirt/libvirtd.conf |awk '{print $3}' |cut -d '"' -f 2)
+echo "Add rundeck user to $libvirt_group and kvm groups"
+adduser rundeck $libvirt_group && adduser rundeck kvm
 kvm_guests=$(virsh list)
 if [[ -z "$kvm_guests" ]]; then
   echo "Restart libvirtd..."

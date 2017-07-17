@@ -20,7 +20,8 @@ elsif backend == "postgres"
   begin
     system("gem install pg --no-ri --no-rdoc --conservative")
     system("su - postgres -c \"createuser pguser -s\"")
-    %x[/bin/bash -c 'echo -e \"local all postgres peer\nlocal all pguser trust\nlocal all rduser trust\nlocal all all peer\nhost all all 127.0.0.1/32 md5\" | tee /etc/postgresql/9.5/main/pg_hba.conf']
+    postgres_version=`apt-cache policy postgresql |grep Candidate |grep -o -P "[0-9]\\.[0-9]"`.chomp
+    %x[/bin/bash -c 'echo -e \"local all postgres peer\nlocal all pguser trust\nlocal all rduser trust\nlocal all all peer\nhost all all 127.0.0.1/32 md5\" | tee /etc/postgresql/#{postgres_version}/main/pg_hba.conf']
     system("systemctl restart postgresql && sleep 5")
     system("createdb -p 5432 -O pguser -U pguser -E UTF8 #{database_name}")
     system("createuser -p 5432 -U pguser rduser")

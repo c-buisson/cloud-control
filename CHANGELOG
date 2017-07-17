@@ -1,6 +1,17 @@
 CHANGELOG
 =========
 
+2.8: 2017-07-17
+---------------
+New Feature:
+- The virsh console is accessible.
+
+Updates:
+- Ubuntu Xenial 16.04 LTS is now the default cloud image.
+- Defaulting user-data templates to use 'ens3' instead of 'eth0' because of "Ubuntu predictable network interface" feature.
+- Get Libvirt group from config file. It can change between Ubuntu versions.
+- Get Mysql and PostgreSQL candidate versions to install and configure them.
+
 2.7: 2017-07-16
 ---------------
 New Features:

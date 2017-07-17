@@ -14,10 +14,11 @@ cp /etc/rundeck/framework.properties.backup /etc/rundeck/framework.properties
 
 # Install database
 if [[ $3 == "mysql" ]]; then
-  echo "mysql-server-5.7 mysql-server/root_password password $4
-  mysql-server-5.7 mysql-server/root_password seen true
-  mysql-server-5.7 mysql-server/root_password_again password $4
-  mysql-server-5.7 mysql-server/root_password_again seen true
+  mysql_version=`apt-cache policy mysql-server |grep Candidate |grep -o "[0-9]\.[0-9]" |head -n 1`
+  echo "mysql-server-$mysql_version mysql-server/root_password password $4
+  mysql-server-$mysql_version mysql-server/root_password seen true
+  mysql-server-$mysql_version mysql-server/root_password_again password $4
+  mysql-server-$mysql_version mysql-server/root_password_again seen true
   " | debconf-set-selections
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -q -y mysql-server mysql-client libmysqlclient-dev
